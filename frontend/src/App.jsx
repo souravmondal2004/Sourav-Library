@@ -8,7 +8,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
 import { api, getStoredUser, getAuthToken } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
@@ -317,24 +317,154 @@ export default function App() {
       )}
 
       {/* Footer */}
+      {/* Modern Luxury Obsidian & Emerald Footer */}
       <footer style={{
-        marginTop: '5rem',
-        padding: '2.5rem 0',
-        borderTop: '1px solid var(--border-color)',
-        background: '#ffffff',
-        fontSize: '0.85rem',
+        marginTop: '6rem',
+        padding: '3.5rem 0 2.5rem',
+        borderTop: '1px solid var(--border-glass)',
+        background: 'linear-gradient(180deg, rgba(14, 22, 38, 0.4) 0%, rgba(8, 12, 22, 0.98) 100%)',
+        fontSize: '0.88rem',
         color: 'var(--text-muted)'
       }}>
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontWeight: 800, color: 'var(--color-primary)' }}>Scribd Clone</span>
-            <span>•</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Database size={14} color="#ea580c" /> Powered by Oracle Database & Spring Boot 3
-            </span>
+        <div className="container">
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '2rem',
+            paddingBottom: '2.5rem',
+            borderBottom: '1px solid var(--border-glass)'
+          }}>
+            {/* Brand Section */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.6rem' }}>
+                <div className="brand-icon-box" style={{ width: 34, height: 34 }}>
+                  <BookOpen size={18} strokeWidth={2.5} />
+                </div>
+                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.5px' }}>
+                  Sourav's Library<span style={{ color: 'var(--color-emerald-light)' }}>.</span>
+                </span>
+                <span className="brand-badge" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>
+                  Full-Stack Platform
+                </span>
+              </div>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', maxWidth: 460, margin: 0, lineHeight: 1.6 }}>
+                High-performance digital reading architecture with chunked byte-range document streaming, dedicated admin studio, and enterprise persistence.
+              </p>
+            </div>
+
+            {/* Specific Technical Skills / Tech Stack Chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', maxWidth: 540, justifyContent: 'flex-end' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.28)',
+                color: 'var(--color-emerald-light)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Code2 size={13} /> Full-Stack Architecture
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(6, 182, 212, 0.12)',
+                border: '1px solid rgba(6, 182, 212, 0.28)',
+                color: 'var(--color-cyan)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Server size={13} /> Spring Boot 3 & REST API
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.28)',
+                color: 'var(--color-gold)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Database size={13} /> Oracle DB & JPA Clustering
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.28)',
+                color: '#a5b4fc',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Zap size={13} /> HTTP 206 Byte-Range Streaming
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid var(--border-card)',
+                color: 'var(--text-main)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Shield size={13} /> JWT Security & RBAC
+              </span>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'rgba(52, 211, 153, 0.12)',
+                border: '1px solid rgba(52, 211, 153, 0.28)',
+                color: 'var(--color-emerald-light)',
+                padding: '5px 12px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 600
+              }}>
+                <Cpu size={13} /> React & Modern Design System
+              </span>
+            </div>
           </div>
-          <div>
-            Built with React, Spring Boot, and Oracle DB • Full-Featured Admin Upload Channel & Reader
+
+          {/* Bottom Copyright & Status Bar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            paddingTop: '1.75rem',
+            fontSize: '0.82rem',
+            color: 'var(--text-dim)'
+          }}>
+            <div>
+              © {new Date().getFullYear()} <span style={{ color: '#ffffff', fontWeight: 700 }}>Sourav's Library</span> • Crafted with precision by <span style={{ color: 'var(--color-emerald-light)', fontWeight: 700 }}>Sourav Mondal</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-emerald-light)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-emerald)', display: 'inline-block', boxShadow: '0 0 8px var(--color-emerald)' }} />
+                Systems Operational
+              </span>
+              <span>•</span>
+              <span>Production Ready</span>
+            </div>
           </div>
         </div>
       </footer>

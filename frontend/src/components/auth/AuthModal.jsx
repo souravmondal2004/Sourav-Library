@@ -50,8 +50,8 @@ export default function AuthModal({ onClose, onLoginSuccess }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontSize: '1.3rem', color: 'var(--color-primary)' }}>
-            {isRegister ? 'Join Scribd' : 'Sign in to Scribd'}
+          <h3 style={{ fontSize: '1.3rem', color: '#ffffff', fontWeight: 800 }}>
+            {isRegister ? "Join Sourav's Library" : "Sign in to Sourav's Library"}
           </h3>
           <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
             <X size={20} />
@@ -153,10 +153,10 @@ export default function AuthModal({ onClose, onLoginSuccess }) {
             </span>
           ) : (
             <span>
-              New to Scribd?{' '}
+              New to Sourav's Library?{' '}
               <button
                 type="button"
-                style={{ color: 'var(--color-accent)', fontWeight: 700 }}
+                style={{ color: 'var(--color-emerald-light)', fontWeight: 700 }}
                 onClick={() => setIsRegister(true)}
               >
                 Create an account
