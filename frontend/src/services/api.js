@@ -66,6 +66,28 @@ async function request(endpoint, options = {}) {
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS, INITIAL_USERS, INITIAL_USER_LOGS } from './seedData';
 
+export const getStoredUsers = () => {
+  const stored = localStorage.getItem('scribd_registered_users');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) {}
+  }
+  localStorage.setItem('scribd_registered_users', JSON.stringify(INITIAL_USERS));
+  return INITIAL_USERS;
+};
+
+export const saveRegisteredUser = (newUser) => {
+  const list = getStoredUsers();
+  const exists = list.some(u => u.username?.toLowerCase() === newUser.username?.toLowerCase() || (newUser.email && u.email?.toLowerCase() === newUser.email?.toLowerCase()));
+  if (!exists) {
+    list.push(newUser);
+    localStorage.setItem('scribd_registered_users', JSON.stringify(list));
+  }
+  return list;
+};
+
 export const api = {
   // Authentication
   auth: {
@@ -84,9 +106,11 @@ export const api = {
           const adminUser = {
             id: 1,
             username: username || 'admin',
-            email: 'admin@scribd-clone.com',
+            email: 'admin@sourav-library.com',
             fullName: 'Administrator',
             role: 'ROLE_ADMIN',
+            createdAt: '2026-09-09T10:00:00.000Z',
+            booksReadCount: 3,
             token: 'demo-admin-jwt-token'
           };
           setAuthToken(adminUser.token);
@@ -99,10 +123,13 @@ export const api = {
             email: `${username || 'user'}@example.com`,
             fullName: username || 'Library Member',
             role: 'ROLE_USER',
+            createdAt: '2026-09-09T11:30:00.000Z',
+            booksReadCount: 2,
             token: 'demo-user-jwt-token'
           };
           setAuthToken(regularUser.token);
           setStoredUser(regularUser);
+          saveRegisteredUser(regularUser);
           return regularUser;
         }
         throw err;
@@ -116,6 +143,7 @@ export const api = {
         });
         setAuthToken(data.token);
         setStoredUser(data);
+        saveRegisteredUser(data);
         return data;
       } catch (err) {
         const newUser = {
@@ -124,10 +152,13 @@ export const api = {
           email: email,
           fullName: fullName || username,
           role: 'ROLE_USER',
+          createdAt: new Date().toISOString(),
+          booksReadCount: 0,
           token: 'demo-user-jwt-token'
         };
         setAuthToken(newUser.token);
         setStoredUser(newUser);
+        saveRegisteredUser(newUser);
         return newUser;
       }
     },
@@ -227,6 +258,7 @@ export const api = {
         const data = await request('/admin/stats');
         if (data && data.totalDocuments !== undefined) return data;
       } catch (err) {}
+      const users = getStoredUsers();
       return {
         totalDocuments: INITIAL_DOCUMENTS.length,
         publishedDocuments: INITIAL_DOCUMENTS.filter(d => d.isPublished).length,
@@ -236,22 +268,22 @@ export const api = {
         totalStorageBytes: 10457,
         formattedStorage: '10.2 KB',
         totalStorageFormatted: '10.2 KB',
-        totalUsers: 2
+        totalUsers: users.length
       };
     },
     getUserActivity: async () => {
       try {
-        return await request('/admin/user-activity');
-      } catch (err) {
-        return INITIAL_USER_LOGS;
-      }
+        const logs = await request('/admin/user-activity');
+        if (Array.isArray(logs) && logs.length > 0) return logs;
+      } catch (err) {}
+      return INITIAL_USER_LOGS;
     },
     getUsers: async () => {
       try {
-        return await request('/admin/users');
-      } catch (err) {
-        return INITIAL_USERS;
-      }
+        const users = await request('/admin/users');
+        if (Array.isArray(users) && users.length > 0) return users;
+      } catch (err) {}
+      return getStoredUsers();
     }
   },
 

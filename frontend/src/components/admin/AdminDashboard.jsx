@@ -21,7 +21,7 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, getStoredUsers } from '../../services/api';
 import { INITIAL_USERS, INITIAL_USER_LOGS, INITIAL_DOCUMENTS } from '../../services/seedData';
 
 const formatDate = (dateStr) => {
@@ -78,7 +78,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
 
   // User Activity & Audit State
   const [userLogs, setUserLogs] = useState(INITIAL_USER_LOGS);
-  const [usersList, setUsersList] = useState(INITIAL_USERS);
+  const [usersList, setUsersList] = useState(getStoredUsers());
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   const loadUserActivity = async () => {
@@ -98,9 +98,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   };
 
   useEffect(() => {
-    if (activeTab === 'users' || activeTab === 'activity') {
-      loadUserActivity();
-    }
+    loadUserActivity();
   }, [activeTab]);
 
   // Load stats & docs
@@ -128,6 +126,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   useEffect(() => {
     loadStats();
     loadAdminDocs();
+    loadUserActivity();
   }, [searchQuery, selectedCat]);
 
   useEffect(() => {
