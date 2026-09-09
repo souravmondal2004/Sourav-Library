@@ -162,10 +162,10 @@ export const INITIAL_USERS = [
 export const INITIAL_USER_LOGS = [
   {
     id: 1,
-    userId: 2,
-    username: 'user',
+    userId: 1,
+    username: 'Sourav',
     fullName: 'Sourav Mondal',
-    userEmail: 'sourav09864@gmail.com',
+    userEmail: 'sourav@lumina.local',
     documentId: 1,
     documentTitle: 'Building Enterprise Applications with Spring Boot & Oracle',
     categoryName: 'Technology & Coding',
@@ -175,7 +175,7 @@ export const INITIAL_USER_LOGS = [
   },
   {
     id: 2,
-    userId: 1,
+    userId: 2,
     username: 'admin',
     fullName: 'Administrator',
     userEmail: 'admin@sourav-library.com',

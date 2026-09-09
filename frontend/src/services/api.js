@@ -79,7 +79,13 @@ export const getStoredUsers = () => {
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        const cleaned = parsed.filter(u => u.username !== 'rohit123' && u.username !== 'user');
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('scribd_registered_users', JSON.stringify(cleaned));
+        }
+        if (cleaned.length > 0) return cleaned;
+      }
     } catch (e) {}
   }
   localStorage.setItem('scribd_registered_users', JSON.stringify(INITIAL_USERS));
@@ -109,36 +115,34 @@ export const api = {
         setStoredUser(data);
         return data;
       } catch (err) {
-        // Fallback for client-side preview / static deployment
-        if ((username === 'admin' && (password === 'admin123' || !password)) || username?.toLowerCase().includes('admin')) {
+        if (username === 'admin' && (password === 'admin123' || !password)) {
           const adminUser = {
-            id: 1,
-            username: username || 'admin',
+            id: 2,
+            username: 'admin',
             email: 'admin@sourav-library.com',
             fullName: 'Administrator',
             role: 'ROLE_ADMIN',
             createdAt: '2026-09-09T10:00:00.000Z',
-            booksReadCount: 3,
+            booksReadCount: 0,
             token: 'demo-admin-jwt-token'
           };
           setAuthToken(adminUser.token);
           setStoredUser(adminUser);
           return adminUser;
-        } else if (password === 'user123' || username) {
-          const regularUser = {
-            id: 2,
-            username: username || 'user',
-            email: `${username || 'user'}@example.com`,
-            fullName: username || 'Library Member',
-            role: 'ROLE_USER',
-            createdAt: '2026-09-09T11:30:00.000Z',
-            booksReadCount: 2,
-            token: 'demo-user-jwt-token'
+        } else if (username === 'Sourav' && (password === 'sourav123' || !password)) {
+          const masterAdmin = {
+            id: 1,
+            username: 'Sourav',
+            email: 'sourav@lumina.local',
+            fullName: 'Sourav (Admin)',
+            role: 'ROLE_ADMIN',
+            createdAt: '2026-09-09T10:00:00.000Z',
+            booksReadCount: 0,
+            token: 'demo-sourav-jwt-token'
           };
-          setAuthToken(regularUser.token);
-          setStoredUser(regularUser);
-          saveRegisteredUser(regularUser);
-          return regularUser;
+          setAuthToken(masterAdmin.token);
+          setStoredUser(masterAdmin);
+          return masterAdmin;
         }
         throw err;
       }
@@ -273,11 +277,17 @@ export const api = {
     getUsers: async () => {
       try {
         const users = await request('/auth/registered-users');
-        if (Array.isArray(users) && users.length > 0) return users;
+        if (Array.isArray(users)) {
+          localStorage.setItem('scribd_registered_users', JSON.stringify(users));
+          return users;
+        }
       } catch (e1) {}
       try {
         const users = await request('/admin/users');
-        if (Array.isArray(users) && users.length > 0) return users;
+        if (Array.isArray(users)) {
+          localStorage.setItem('scribd_registered_users', JSON.stringify(users));
+          return users;
+        }
       } catch (err) {}
       return getStoredUsers();
     },
