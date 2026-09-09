@@ -597,6 +597,77 @@ button {
   background: transparent;
 }
 
+/* PDF.js Canvas Reader Container */
+.pdf-canvas-container {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1.5rem 1rem 3rem;
+  box-sizing: border-box;
+}
+
+.pdf-page-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #ffffff;
+  transition: transform 0.15s ease, filter 0.25s ease;
+}
+
+.pdf-page-canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background-color: #ffffff;
+}
+
+/* Reader themes applied to PDF Canvas */
+.reader-theme-dark .pdf-page-canvas {
+  filter: invert(0.92) hue-rotate(180deg) contrast(0.92);
+}
+
+.reader-theme-sepia .pdf-page-canvas {
+  filter: sepia(0.38) contrast(0.92) brightness(0.96);
+}
+
+.pdf-loading-state,
+.pdf-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  text-align: center;
+  gap: 1.25rem;
+  max-width: 480px;
+  margin: auto;
+}
+
+.pdf-loading-spinner {
+  width: 46px;
+  height: 46px;
+  border: 3.5px solid rgba(255, 94, 54, 0.2);
+  border-top-color: #ff5e36;
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ============================================================
    ADMIN CHANNEL CONSOLE
    ============================================================ */

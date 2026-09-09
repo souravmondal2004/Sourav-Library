@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   ChevronLeft,
@@ -11,10 +11,35 @@ import {
   Coffee,
   Bookmark,
   Download,
-  BookOpen,
-  ExternalLink
+  ExternalLink,
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { api } from '../../services/api';
+
+// Helper to reliably load PDF.js library from window or bundled distribution
+const getPdfJsLib = async () => {
+  if (typeof window !== 'undefined' && window.pdfjsLib) {
+    return window.pdfjsLib;
+  }
+  // Wait up to 2.5s for the CDN script tag in index.html to finish loading
+  for (let i = 0; i < 25; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    if (typeof window !== 'undefined' && window.pdfjsLib) {
+      return window.pdfjsLib;
+    }
+  }
+  try {
+    const pdfjs = await import('pdfjs-dist/build/pdf.js');
+    if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version || '3.11.174'}/pdf.worker.min.js`;
+    }
+    return pdfjs;
+  } catch (err) {
+    console.warn('Bundled pdfjs-dist import fallback error:', err);
+    return null;
+  }
+};
 
 export default function PdfReaderModal({
   book,
@@ -24,22 +49,164 @@ export default function PdfReaderModal({
   onToggleBookmark
 }) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(book.pageCount || 1);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [theme, setTheme] = useState('light'); // 'light', 'sepia', 'dark'
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const totalPages = book.pageCount || 1;
-  const streamUrl = `${api.documents.getStreamUrl(book.id)}#page=${currentPage}&zoom=${zoomLevel}`;
+  // PDF.js Canvas Rendering States
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
 
-  // Automatically save reading progress periodically or when page changes
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const currentRenderTaskRef = useRef(null);
+
+  const isTextMode = book.pages && book.pages.length > 0;
+  const streamUrl = api.documents.getStreamUrl(book.id);
+
+  // Load PDF document using PDF.js when opening an uploaded file
   useEffect(() => {
-    if (currentUser && book) {
+    if (isTextMode) {
+      setTotalPages(book.pages.length);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingPdf(true);
+    setPdfError(null);
+    setPdfDoc(null);
+
+    async function loadDocument() {
+      try {
+        const pdfjs = await getPdfJsLib();
+        if (!pdfjs) {
+          throw new Error('PDF rendering library is initializing. Please wait a moment or reload.');
+        }
+
+        if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+          pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        // Fetch PDF binary directly over CORS
+        const response = await fetch(streamUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to load document stream (HTTP ${response.status}).`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+
+        const loadingTask = pdfjs.getDocument({
+          data: arrayBuffer,
+          cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+          cMapPacked: true
+        });
+
+        const doc = await loadingTask.promise;
+        if (!isMounted) return;
+
+        setPdfDoc(doc);
+        setTotalPages(doc.numPages);
+        setIsLoadingPdf(false);
+      } catch (err) {
+        console.error('PDF.js loading error:', err);
+        if (isMounted) {
+          setPdfError(err.message || 'Unable to render document inline.');
+          setIsLoadingPdf(false);
+        }
+      }
+    }
+
+    loadDocument();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [book.id, isTextMode, streamUrl, book.pages]);
+
+  // Render current PDF page onto HTML5 Canvas
+  useEffect(() => {
+    if (isTextMode || !pdfDoc || !canvasRef.current) return;
+
+    let isCancelled = false;
+
+    async function renderPage() {
+      try {
+        // Cancel active render task if user rapidly switched pages
+        if (currentRenderTaskRef.current) {
+          try {
+            currentRenderTaskRef.current.cancel();
+          } catch {
+            // ignore cancellation
+          }
+        }
+
+        const page = await pdfDoc.getPage(currentPage);
+        if (isCancelled) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        // Responsive base scale (1.2 default, scaled with zoomLevel)
+        const baseScale = 1.25 * (zoomLevel / 100);
+        const viewport = page.getViewport({ scale: baseScale });
+
+        // High DPI sharpness support for Retina and mobile displays
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
+
+        const renderContext = {
+          canvasContext: ctx,
+          transform,
+          viewport
+        };
+
+        const renderTask = page.render(renderContext);
+        currentRenderTaskRef.current = renderTask;
+
+        await renderTask.promise;
+        currentRenderTaskRef.current = null;
+
+        // Auto-scroll to top of page on page turn
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+        }
+      } catch (err) {
+        if (err?.name !== 'RenderingCancelledException') {
+          console.error('PDF Page render error:', err);
+        }
+      }
+    }
+
+    renderPage();
+
+    return () => {
+      isCancelled = true;
+      if (currentRenderTaskRef.current) {
+        try {
+          currentRenderTaskRef.current.cancel();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [pdfDoc, currentPage, zoomLevel, isTextMode]);
+
+  // Save reading progress periodically
+  useEffect(() => {
+    if (currentUser && book && totalPages > 0) {
       const progressPercent = Math.min(100, Math.round((currentPage / totalPages) * 100));
       api.library.updateProgress(book.id, currentPage, progressPercent).catch(() => {});
     }
   }, [currentPage, book, currentUser, totalPages]);
 
-  // Handle keyboard navigation (ArrowLeft, ArrowRight, Esc)
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
@@ -86,7 +253,7 @@ export default function PdfReaderModal({
               <X size={18} />
             </button>
             <div>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, maxWidth: 350, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {book.title}
               </h3>
               <p style={{ fontSize: '0.75rem', opacity: 0.75, margin: 0 }}>
@@ -146,7 +313,7 @@ export default function PdfReaderModal({
           </div>
 
           {/* Right: Theme, Zoom, Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
             {/* Theme switcher */}
             <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: 2 }}>
               <button
@@ -154,7 +321,9 @@ export default function PdfReaderModal({
                   padding: '4px 6px',
                   borderRadius: 4,
                   background: theme === 'light' ? '#fff' : 'transparent',
-                  color: theme === 'light' ? '#002e3b' : 'inherit'
+                  color: theme === 'light' ? '#002e3b' : 'inherit',
+                  border: 'none',
+                  cursor: 'pointer'
                 }}
                 onClick={() => setTheme('light')}
                 title="Light Mode"
@@ -166,10 +335,12 @@ export default function PdfReaderModal({
                   padding: '4px 6px',
                   borderRadius: 4,
                   background: theme === 'sepia' ? '#fbf0d9' : 'transparent',
-                  color: theme === 'sepia' ? '#5f4b32' : 'inherit'
+                  color: theme === 'sepia' ? '#5f4b32' : 'inherit',
+                  border: 'none',
+                  cursor: 'pointer'
                 }}
                 onClick={() => setTheme('sepia')}
-                title="Sepia Warm Mode"
+                title="Warm Sepia Mode"
               >
                 <Coffee size={15} />
               </button>
@@ -178,7 +349,9 @@ export default function PdfReaderModal({
                   padding: '4px 6px',
                   borderRadius: 4,
                   background: theme === 'dark' ? '#0f172a' : 'transparent',
-                  color: theme === 'dark' ? '#fff' : 'inherit'
+                  color: theme === 'dark' ? '#fff' : 'inherit',
+                  border: 'none',
+                  cursor: 'pointer'
                 }}
                 onClick={() => setTheme('dark')}
                 title="Night Mode"
@@ -187,7 +360,7 @@ export default function PdfReaderModal({
               </button>
             </div>
 
-            {/* Zoom */}
+            {/* Zoom Controls */}
             <button
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
@@ -196,13 +369,26 @@ export default function PdfReaderModal({
             >
               <ZoomOut size={16} />
             </button>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, minWidth: 36, textAlign: 'center' }}>
+            <button
+              onClick={() => setZoomLevel(100)}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                minWidth: 38,
+                textAlign: 'center',
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                cursor: 'pointer'
+              }}
+              title="Reset Zoom to 100%"
+            >
               {zoomLevel}%
-            </span>
+            </button>
             <button
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
-              onClick={() => setZoomLevel((z) => Math.min(200, z + 15))}
+              onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
               title="Zoom In"
             >
               <ZoomIn size={16} />
@@ -213,7 +399,7 @@ export default function PdfReaderModal({
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
               onClick={() => onToggleBookmark(book.id)}
-              title={isBookmarked ? 'Remove Bookmark' : 'Bookmark this Book'}
+              title={isBookmarked ? 'Remove Bookmark' : 'Bookmark this Document'}
             >
               <Bookmark
                 size={16}
@@ -228,19 +414,19 @@ export default function PdfReaderModal({
               download
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
-              title="Download PDF"
+              title="Download Document"
             >
               <Download size={16} />
             </a>
 
-            {/* Open in New Window / External Reader */}
+            {/* Open in Full Tab */}
             <a
-              href={api.documents.getStreamUrl(book.id)}
+              href={streamUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
-              title="Open PDF in Full Tab"
+              title="Open Document in Full Tab"
             >
               <ExternalLink size={16} />
             </a>
@@ -258,13 +444,15 @@ export default function PdfReaderModal({
         </div>
 
         {/* Reader Content Body */}
-        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-          {book.pages && book.pages.length > 0 ? (
+        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {isTextMode ? (
+            /* Structured Text/Chapter Reading View */
             <div style={{
               flex: 1,
               maxWidth: 860,
               width: '100%',
               margin: '0 auto',
+              overflowY: 'auto',
               padding: `${2 * (zoomLevel / 100)}rem ${2.5 * (zoomLevel / 100)}rem`,
               fontSize: `${1.05 * (zoomLevel / 100)}rem`,
               lineHeight: 1.8,
@@ -289,14 +477,13 @@ export default function PdfReaderModal({
                     </div>
 
                     <h2 style={{ fontSize: `${1.75 * (zoomLevel / 100)}rem`, marginBottom: '1.5rem', fontWeight: 800 }}>
-                      {pageData.title || `Page ${currentPage}`}
+                      {pageData?.title || `Page ${currentPage}`}
                     </h2>
 
                     <div style={{ whiteSpace: 'pre-line', marginBottom: '3rem', letterSpacing: '0.01em' }}>
-                      {pageData.content}
+                      {pageData?.content}
                     </div>
 
-                    {/* Bottom Page Navigation Controls */}
                     <div style={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -329,32 +516,79 @@ export default function PdfReaderModal({
                 );
               })()}
             </div>
+          ) : isLoadingPdf ? (
+            /* Sleek PDF Loading State */
+            <div className="pdf-loading-state">
+              <div className="pdf-loading-spinner" />
+              <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem' }}>Rendering Document...</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.75 }}>
+                Preparing high-definition pages for reading
+              </p>
+            </div>
+          ) : pdfError ? (
+            /* Graceful Fallback if PDF fails to render */
+            <div className="pdf-error-state">
+              <AlertCircle size={44} color="#ff5e36" />
+              <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem' }}>Unable to preview document inline</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.75 }}>{pdfError}</p>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <a
+                  href={streamUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                >
+                  <ExternalLink size={16} /> Open in New Tab
+                </a>
+                <a
+                  href={api.documents.getDownloadUrl(book.id)}
+                  download
+                  className="btn btn-outline"
+                >
+                  <Download size={16} /> Download PDF
+                </a>
+              </div>
+            </div>
           ) : (
-            <object
-              data={streamUrl}
-              type="application/pdf"
-              className="reader-content-frame"
-              style={{ width: '100%', height: '100%' }}
-            >
-              <iframe
-                src={streamUrl}
-                title={book.title}
-                className="reader-content-frame"
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              >
-                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  <p style={{ marginBottom: '1rem' }}>Your device cannot preview this PDF inline.</p>
-                  <a
-                    href={api.documents.getStreamUrl(book.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                  >
-                    Open PDF in Full Tab
-                  </a>
-                </div>
-              </iframe>
-            </object>
+            /* Mozilla PDF.js Canvas Reader (Desktop + Mobile Flawless) */
+            <div className="pdf-canvas-container" ref={containerRef}>
+              <div className="pdf-page-wrapper">
+                <canvas ref={canvasRef} className="pdf-page-canvas" />
+              </div>
+
+              {/* Bottom Page Navigation Controls */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                width: '100%',
+                maxWidth: 680,
+                marginTop: '2rem',
+                paddingTop: '1.25rem',
+                borderTop: '1px solid rgba(128, 128, 128, 0.2)'
+              }}>
+                <button
+                  className="btn btn-outline"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  style={{ color: 'inherit', borderColor: 'currentColor' }}
+                >
+                  <ChevronLeft size={16} /> Previous Page
+                </button>
+
+                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                  Page {currentPage} of {totalPages} ({Math.round((currentPage / totalPages) * 100)}%)
+                </span>
+
+                <button
+                  className="btn btn-primary"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next Page <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
