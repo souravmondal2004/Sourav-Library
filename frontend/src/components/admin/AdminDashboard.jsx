@@ -8,6 +8,7 @@ import {
   BarChart3,
   Layers,
   Edit2,
+  Edit3,
   Trash2,
   Eye,
   EyeOff,
@@ -15,6 +16,7 @@ import {
   HardDrive,
   Users,
   UserCheck,
+  UserPlus,
   Activity,
   Plus,
   Search,
@@ -80,6 +82,22 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   const [userLogs, setUserLogs] = useState(INITIAL_USER_LOGS);
   const [usersList, setUsersList] = useState(getStoredUsers());
   const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Edit User State
+  const [editingUser, setEditingUser] = useState(null);
+  const [userEditFullName, setUserEditFullName] = useState('');
+  const [userEditEmail, setUserEditEmail] = useState('');
+  const [userEditRole, setUserEditRole] = useState('ROLE_USER');
+  const [userEditPassword, setUserEditPassword] = useState('');
+  const [savingUserEdit, setSavingUserEdit] = useState(false);
+
+  // Add User State
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newFullName, setNewFullName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
 
   const loadUserActivity = async () => {
     setLoadingUsers(true);
@@ -281,7 +299,69 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     }
   };
 
-  // Create Category
+  // Edit User Handlers
+  const handleOpenEditUser = (u) => {
+    setEditingUser(u);
+    setUserEditFullName(u.fullName || '');
+    setUserEditEmail(u.email || '');
+    setUserEditRole(u.role || 'ROLE_USER');
+    setUserEditPassword('');
+  };
+
+  const handleSaveUserEdit = async (e) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setSavingUserEdit(true);
+    try {
+      const updates = {
+        fullName: userEditFullName.trim(),
+        email: userEditEmail.trim(),
+        role: userEditRole
+      };
+      if (userEditPassword.trim()) {
+        updates.password = userEditPassword.trim();
+      }
+      await api.admin.updateUser(editingUser.id, updates);
+
+      setUsersList(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...updates } : u));
+      setMessage({ type: 'success', text: `User "${editingUser.username}" updated successfully.` });
+      setEditingUser(null);
+      loadUserActivity();
+    } catch (err) {
+      alert('Failed to update user: ' + err.message);
+    } finally {
+      setSavingUserEdit(false);
+    }
+  };
+
+  const handleCreateNewUser = async (e) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newPassword.trim()) {
+      alert('Username and password are required.');
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      await api.admin.createUser({
+        username: newUsername.trim(),
+        email: newEmail.trim() || `${newUsername.trim()}@example.com`,
+        password: newPassword.trim(),
+        fullName: newFullName.trim() || newUsername.trim()
+      });
+      setMessage({ type: 'success', text: `User "${newUsername}" created successfully.` });
+      setShowAddUserModal(false);
+      setNewUsername('');
+      setNewFullName('');
+      setNewEmail('');
+      setNewPassword('');
+      loadUserActivity();
+    } catch (err) {
+      alert('Failed to create user: ' + err.message);
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
@@ -833,9 +913,19 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                 All accounts registered in the database, including credentials, permissions, and sign-up dates.
               </p>
             </div>
-            <button className="btn btn-outline" onClick={loadUserActivity}>
-              <RefreshCw size={15} /> Refresh Accounts
-            </button>
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowAddUserModal(true)}
+                style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}
+                title="Register a new user account"
+              >
+                <UserPlus size={15} /> Add User
+              </button>
+              <button className="btn btn-outline" onClick={loadUserActivity} style={{ padding: '0.45rem 0.85rem', fontSize: '0.82rem' }}>
+                <RefreshCw size={15} /> Refresh Accounts
+              </button>
+            </div>
           </div>
 
           <div className="admin-table-container">
@@ -883,27 +973,45 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                         {u.booksReadCount || 0} books
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {u.role !== 'ROLE_ADMIN' && u.id !== 1 && u.username?.toLowerCase() !== 'sourav' ? (
+                        <div style={{ display: 'flex', gap: '0.45rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button
                             className="btn btn-outline"
-                            onClick={() => handleDeleteUser(u)}
+                            onClick={() => handleOpenEditUser(u)}
                             style={{
                               padding: '0.35rem 0.65rem',
-                              color: '#fb7185',
-                              borderColor: 'rgba(244, 63, 94, 0.3)',
+                              color: 'var(--color-primary)',
+                              borderColor: 'rgba(56, 189, 248, 0.3)',
                               fontSize: '0.75rem',
                               borderRadius: '6px'
                             }}
-                            title={`Delete ${u.username}`}
+                            title={`Edit / Change ${u.username}`}
                           >
-                            <Trash2 size={13} />
-                            Delete
+                            <Edit3 size={13} />
+                            Change
                           </button>
-                        ) : (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                            Protected
-                          </span>
-                        )}
+
+                          {u.role !== 'ROLE_ADMIN' && u.id !== 1 && u.username?.toLowerCase() !== 'sourav' ? (
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => handleDeleteUser(u)}
+                              style={{
+                                padding: '0.35rem 0.65rem',
+                                color: '#fb7185',
+                                borderColor: 'rgba(244, 63, 94, 0.3)',
+                                fontSize: '0.75rem',
+                                borderRadius: '6px'
+                              }}
+                              title={`Delete ${u.username}`}
+                            >
+                              <Trash2 size={13} />
+                              Delete
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)', fontStyle: 'italic', paddingLeft: '0.2rem' }}>
+                              Protected
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1081,6 +1189,166 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
           </div>
         </div>
       )}
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="modal-backdrop" onClick={() => setEditingUser(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#ffffff', margin: 0 }}>Change User Account</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
+                  Updating user <strong>@{editingUser.username}</strong> (#{editingUser.id})
+                </p>
+              </div>
+              <button onClick={() => setEditingUser(null)} style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserEdit}>
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={userEditFullName}
+                  onChange={(e) => setUserEditFullName(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Sourav Mondal"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={userEditEmail}
+                  onChange={(e) => setUserEditEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="user@example.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Role & Access Level</label>
+                <select
+                  value={userEditRole}
+                  onChange={(e) => setUserEditRole(e.target.value)}
+                  className="form-select"
+                  disabled={editingUser.id === 1 || editingUser.username?.toLowerCase() === 'sourav'}
+                >
+                  <option value="ROLE_USER">READER (Read Only)</option>
+                  <option value="ROLE_ADMIN">ADMIN (Full Control & Uploads)</option>
+                </select>
+                {(editingUser.id === 1 || editingUser.username?.toLowerCase() === 'sourav') && (
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                    Master Admin role is protected and cannot be changed.
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">New Password (Leave blank to keep unchanged)</label>
+                <input
+                  type="password"
+                  value={userEditPassword}
+                  onChange={(e) => setUserEditPassword(e.target.value)}
+                  className="form-input"
+                  placeholder="Enter new password (optional)"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.75rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setEditingUser(null)}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={savingUserEdit} className="btn btn-primary">
+                  {savingUserEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="modal-backdrop" onClick={() => setShowAddUserModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.2rem', color: '#ffffff', margin: 0 }}>Register New User</h3>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
+                  Add a new member account to Sourav's Library
+                </p>
+              </div>
+              <button onClick={() => setShowAddUserModal(false)} style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewUser}>
+              <div className="form-group">
+                <label className="form-label">Username</label>
+                <input
+                  type="text"
+                  required
+                  value={newUsername}
+                  onChange={(e) => setNewUsername(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. library_reader"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Full Name</label>
+                <input
+                  type="text"
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. John Doe"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Email Address</label>
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="reader@example.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Password</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="form-input"
+                  placeholder="Set initial password"
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.75rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowAddUserModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={creatingUser} className="btn btn-primary">
+                  {creatingUser ? 'Creating...' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -22,17 +22,20 @@ public class AuthController {
     private final UserRepository userRepository;
     private final com.scribd.clone.repository.BookmarkRepository bookmarkRepository;
     private final com.scribd.clone.repository.ReadingHistoryRepository readingHistoryRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public AuthController(
             AuthService authService,
             UserRepository userRepository,
             com.scribd.clone.repository.BookmarkRepository bookmarkRepository,
-            com.scribd.clone.repository.ReadingHistoryRepository readingHistoryRepository
+            com.scribd.clone.repository.ReadingHistoryRepository readingHistoryRepository,
+            org.springframework.security.crypto.password.PasswordEncoder passwordEncoder
     ) {
         this.authService = authService;
         this.userRepository = userRepository;
         this.bookmarkRepository = bookmarkRepository;
         this.readingHistoryRepository = readingHistoryRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/register")
@@ -79,6 +82,42 @@ public class AuthController {
     }
 
     @org.springframework.transaction.annotation.Transactional
+    @PutMapping("/users/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody Map<String, String> updates) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + id));
+
+        if (updates.containsKey("fullName") && updates.get("fullName") != null && !updates.get("fullName").isBlank()) {
+            user.setFullName(updates.get("fullName").trim());
+        }
+        if (updates.containsKey("email") && updates.get("email") != null && !updates.get("email").isBlank()) {
+            user.setEmail(updates.get("email").trim());
+        }
+        if (updates.containsKey("role") && updates.get("role") != null && !updates.get("role").isBlank()) {
+            String newRole = updates.get("role").trim();
+            // Don't allow demoting user #1 or username Sourav
+            if ((id == 1L || "Sourav".equalsIgnoreCase(user.getUsername())) && !"ROLE_ADMIN".equals(newRole)) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Master Admin role cannot be demoted"));
+            }
+            user.setRole(newRole);
+        }
+        if (updates.containsKey("password") && updates.get("password") != null && !updates.get("password").isBlank()) {
+            user.setPassword(passwordEncoder.encode(updates.get("password").trim()));
+        }
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "User account updated successfully",
+                "id", user.getId(),
+                "username", user.getUsername(),
+                "fullName", user.getFullName() != null ? user.getFullName() : user.getUsername(),
+                "email", user.getEmail() != null ? user.getEmail() : "",
+                "role", user.getRole()
+        ));
+    }
+
+    @org.springframework.transaction.annotation.Transactional
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         if (id == 1L) {
@@ -96,3 +135,4 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "User account deleted successfully", "id", id));
     }
 }
+

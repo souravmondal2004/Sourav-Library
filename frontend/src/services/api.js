@@ -310,8 +310,31 @@ export const api = {
         } catch (e) {}
       }
       return { success: true, deleted };
+    },
+    updateUser: async (id, data) => {
+      try {
+        const updated = await request(`/auth/users/${id}`, {
+          method: 'PUT',
+          body: data
+        });
+        return updated;
+      } catch (err) {
+        throw err;
+      }
+    },
+    createUser: async (userData) => {
+      try {
+        const created = await request('/auth/register', {
+          method: 'POST',
+          body: userData
+        });
+        return created;
+      } catch (err) {
+        throw err;
+      }
     }
   },
+
 
   // User Library
   library: {

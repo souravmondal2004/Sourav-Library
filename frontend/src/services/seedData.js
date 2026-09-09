@@ -140,23 +140,24 @@ export const INITIAL_DOCUMENTS = [
 export const INITIAL_USERS = [
   {
     id: 1,
+    username: 'Sourav',
+    fullName: 'Sourav (Admin)',
+    email: 'sourav@lumina.local',
+    role: 'ROLE_ADMIN',
+    createdAt: '2026-09-09T10:00:00.000Z',
+    booksReadCount: 0
+  },
+  {
+    id: 2,
     username: 'admin',
     fullName: 'Administrator',
     email: 'admin@sourav-library.com',
     role: 'ROLE_ADMIN',
     createdAt: '2026-09-09T10:00:00.000Z',
-    booksReadCount: 3
-  },
-  {
-    id: 2,
-    username: 'user',
-    fullName: 'Sourav Mondal',
-    email: 'sourav09864@gmail.com',
-    role: 'ROLE_USER',
-    createdAt: '2026-09-09T11:30:00.000Z',
-    booksReadCount: 2
+    booksReadCount: 0
   }
 ];
+
 
 export const INITIAL_USER_LOGS = [
   {

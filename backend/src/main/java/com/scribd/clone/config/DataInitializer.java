@@ -82,12 +82,6 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(existingAdmin);
         }
 
-        if (!userRepository.existsByUsername("user")) {
-            User demoUser = new User("user", "user@scribd.local", passwordEncoder.encode("user123"), "ROLE_USER", "Demo Reader");
-            userRepository.save(demoUser);
-            log.info("Initialized default USER account: user / user123");
-        }
-
         return admin;
     }
 
