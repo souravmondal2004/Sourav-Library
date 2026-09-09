@@ -11,7 +11,8 @@ import {
   Coffee,
   Bookmark,
   Download,
-  BookOpen
+  BookOpen,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -232,6 +233,18 @@ export default function PdfReaderModal({
               <Download size={16} />
             </a>
 
+            {/* Open in New Window / External Reader */}
+            <a
+              href={api.documents.getStreamUrl(book.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              title="Open PDF in Full Tab"
+            >
+              <ExternalLink size={16} />
+            </a>
+
             {/* Fullscreen */}
             <button
               className="btn btn-outline"
@@ -317,11 +330,31 @@ export default function PdfReaderModal({
               })()}
             </div>
           ) : (
-            <iframe
-              src={streamUrl}
-              title={book.title}
+            <object
+              data={streamUrl}
+              type="application/pdf"
               className="reader-content-frame"
-            />
+              style={{ width: '100%', height: '100%' }}
+            >
+              <iframe
+                src={streamUrl}
+                title={book.title}
+                className="reader-content-frame"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              >
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  <p style={{ marginBottom: '1rem' }}>Your device cannot preview this PDF inline.</p>
+                  <a
+                    href={api.documents.getStreamUrl(book.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                  >
+                    Open PDF in Full Tab
+                  </a>
+                </div>
+              </iframe>
+            </object>
           )}
         </div>
       </div>
