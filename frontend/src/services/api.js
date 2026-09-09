@@ -2,7 +2,7 @@
  * Scribd Clone API Client
  */
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Helper to get JWT token from localStorage
 export const getAuthToken = () => localStorage.getItem('scribd_token');
