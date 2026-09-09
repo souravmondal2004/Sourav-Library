@@ -22,11 +22,27 @@ import {
   X
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { INITIAL_USERS, INITIAL_USER_LOGS, INITIAL_DOCUMENTS } from '../../services/seedData';
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? String(dateStr) : d.toLocaleDateString();
+  } catch {
+    return String(dateStr);
+  }
+};
 
 export default function AdminDashboard({ categories, onRefreshCategories, onOpenReader }) {
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload', 'manage', 'categories', 'stats'
-  const [stats, setStats] = useState(null);
-  const [adminDocs, setAdminDocs] = useState([]);
+  const [activeTab, setActiveTab] = useState('upload'); // 'upload', 'manage', 'categories', 'users', 'activity'
+  const [stats, setStats] = useState({
+    totalDocuments: INITIAL_DOCUMENTS.length,
+    publishedDocuments: INITIAL_DOCUMENTS.filter(d => d.isPublished).length,
+    totalViews: 305,
+    formattedStorage: '10.2 KB'
+  });
+  const [adminDocs, setAdminDocs] = useState(INITIAL_DOCUMENTS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCat, setSelectedCat] = useState('');
   const [loadingDocs, setLoadingDocs] = useState(false);
@@ -61,8 +77,8 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   const [creatingCat, setCreatingCat] = useState(false);
 
   // User Activity & Audit State
-  const [userLogs, setUserLogs] = useState([]);
-  const [usersList, setUsersList] = useState([]);
+  const [userLogs, setUserLogs] = useState(INITIAL_USER_LOGS);
+  const [usersList, setUsersList] = useState(INITIAL_USERS);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   const loadUserActivity = async () => {
@@ -72,8 +88,8 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
         api.admin.getUserActivity(),
         api.admin.getUsers()
       ]);
-      setUserLogs(logs || []);
-      setUsersList(users || []);
+      if (Array.isArray(logs) && logs.length > 0) setUserLogs(logs);
+      if (Array.isArray(users) && users.length > 0) setUsersList(users);
     } catch (e) {
       console.error('Failed to load user activity:', e);
     } finally {
@@ -819,7 +835,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                         </span>
                       </td>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                        {formatDate(u.createdAt)}
                       </td>
                       <td style={{ fontWeight: 700, color: 'var(--color-emerald-light)' }}>
                         {u.booksReadCount || 0} books
@@ -912,7 +928,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                         </div>
                       </td>
                       <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {log.lastReadAt ? new Date(log.lastReadAt).toLocaleString() : 'Just now'}
+                        {formatDate(log.lastReadAt)}
                       </td>
                     </tr>
                   ))

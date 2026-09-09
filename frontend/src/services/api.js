@@ -58,7 +58,7 @@ async function request(endpoint, options = {}) {
   return response;
 }
 
-import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './seedData';
+import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS, INITIAL_USERS, INITIAL_USER_LOGS } from './seedData';
 
 export const api = {
   // Authentication
@@ -235,14 +235,14 @@ export const api = {
       try {
         return await request('/admin/user-activity');
       } catch (err) {
-        return [];
+        return INITIAL_USER_LOGS;
       }
     },
     getUsers: async () => {
       try {
         return await request('/admin/users');
       } catch (err) {
-        return [];
+        return INITIAL_USERS;
       }
     }
   },

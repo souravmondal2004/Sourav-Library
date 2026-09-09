@@ -136,3 +136,53 @@ export const INITIAL_DOCUMENTS = [
     ]
   }
 ];
+
+export const INITIAL_USERS = [
+  {
+    id: 1,
+    username: 'admin',
+    fullName: 'Administrator',
+    email: 'admin@sourav-library.com',
+    role: 'ROLE_ADMIN',
+    createdAt: '2026-09-09T10:00:00.000Z',
+    booksReadCount: 3
+  },
+  {
+    id: 2,
+    username: 'user',
+    fullName: 'Sourav Mondal',
+    email: 'sourav09864@gmail.com',
+    role: 'ROLE_USER',
+    createdAt: '2026-09-09T11:30:00.000Z',
+    booksReadCount: 2
+  }
+];
+
+export const INITIAL_USER_LOGS = [
+  {
+    id: 1,
+    userId: 2,
+    username: 'user',
+    fullName: 'Sourav Mondal',
+    userEmail: 'sourav09864@gmail.com',
+    documentId: 1,
+    documentTitle: 'Building Enterprise Applications with Spring Boot & Oracle',
+    categoryName: 'Technology & Coding',
+    lastPage: 3,
+    progressPercent: 75,
+    lastReadAt: '2026-09-09T12:15:00.000Z'
+  },
+  {
+    id: 2,
+    userId: 1,
+    username: 'admin',
+    fullName: 'Administrator',
+    userEmail: 'admin@sourav-library.com',
+    documentId: 2,
+    documentTitle: "The Innovator's Architecture: Scaling High-Impact Teams",
+    categoryName: 'Business & Leadership',
+    lastPage: 2,
+    progressPercent: 66,
+    lastReadAt: '2026-09-09T13:40:00.000Z'
+  }
+];
