@@ -89,7 +89,10 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
         api.admin.getUsers()
       ]);
       if (Array.isArray(logs) && logs.length > 0) setUserLogs(logs);
-      if (Array.isArray(users) && users.length > 0) setUsersList(users);
+      if (Array.isArray(users) && users.length > 0) {
+        setUsersList(users);
+        setStats(prev => ({ ...prev, totalUsers: users.length }));
+      }
     } catch (e) {
       console.error('Failed to load user activity:', e);
     } finally {
@@ -99,6 +102,8 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
 
   useEffect(() => {
     loadUserActivity();
+    const interval = setInterval(loadUserActivity, 5000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
   // Load stats & docs
