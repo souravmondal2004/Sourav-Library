@@ -54,4 +54,18 @@ public class AuthController {
                 "fullName", user.getFullName() != null ? user.getFullName() : user.getUsername()
         ));
     }
+
+    @GetMapping("/registered-users")
+    public ResponseEntity<?> getRegisteredUsers() {
+        var users = userRepository.findAll().stream().map(u -> Map.of(
+                "id", u.getId(),
+                "username", u.getUsername(),
+                "email", u.getEmail() != null ? u.getEmail() : "",
+                "fullName", u.getFullName() != null ? u.getFullName() : u.getUsername(),
+                "role", u.getRole() != null ? u.getRole() : "ROLE_USER",
+                "createdAt", u.getCreatedAt() != null ? u.getCreatedAt().toString() : java.time.Instant.now().toString(),
+                "booksReadCount", 0
+        )).toList();
+        return ResponseEntity.ok(users);
+    }
 }

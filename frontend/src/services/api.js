@@ -280,6 +280,10 @@ export const api = {
     },
     getUsers: async () => {
       try {
+        const users = await request('/auth/registered-users');
+        if (Array.isArray(users) && users.length > 0) return users;
+      } catch (e1) {}
+      try {
         const users = await request('/admin/users');
         if (Array.isArray(users) && users.length > 0) return users;
       } catch (err) {}
