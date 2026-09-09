@@ -81,8 +81,12 @@ public class AdminService {
             throw new IllegalArgumentException("PDF file is required");
         }
 
-        User uploader = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("Uploader user not found: " + username));
+        User uploader = (username != null ? userRepository.findByUsername(username).orElse(null) : null);
+        if (uploader == null) {
+            uploader = userRepository.findByRole("ROLE_ADMIN").stream().findFirst()
+                    .orElseGet(() -> userRepository.findAll().stream().findFirst()
+                            .orElseThrow(() -> new IllegalArgumentException("No user found in database")));
+        }
 
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + categoryId));

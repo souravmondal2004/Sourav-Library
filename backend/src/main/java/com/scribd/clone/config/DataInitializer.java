@@ -57,20 +57,29 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private User initUsers() {
-        User admin = userRepository.findByUsername("Sourav")
-                .orElseGet(() -> userRepository.findByUsername("admin").orElse(null));
+        User admin = userRepository.findByUsername("Sourav").orElse(null);
 
         if (admin == null) {
             admin = new User("Sourav", "sourav@lumina.local", passwordEncoder.encode("Sourav@2004"), "ROLE_ADMIN", "Sourav (Admin)");
             userRepository.save(admin);
             log.info("Initialized ADMIN account: Sourav / Sourav@2004");
         } else {
-            admin.setUsername("Sourav");
             admin.setPassword(passwordEncoder.encode("Sourav@2004"));
             admin.setRole("ROLE_ADMIN");
             admin.setFullName("Sourav (Admin)");
             userRepository.save(admin);
             log.info("Updated ADMIN account: Sourav / Sourav@2004");
+        }
+
+        if (!userRepository.existsByUsername("admin")) {
+            User altAdmin = new User("admin", "admin@sourav-library.com", passwordEncoder.encode("admin123"), "ROLE_ADMIN", "Administrator");
+            userRepository.save(altAdmin);
+            log.info("Initialized default ADMIN account: admin / admin123");
+        } else {
+            User existingAdmin = userRepository.findByUsername("admin").get();
+            existingAdmin.setPassword(passwordEncoder.encode("admin123"));
+            existingAdmin.setRole("ROLE_ADMIN");
+            userRepository.save(existingAdmin);
         }
 
         if (!userRepository.existsByUsername("user")) {

@@ -155,6 +155,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     setUploading(true);
     setMessage(null);
 
+    const activeCatId = categoryId || (categories.length > 0 ? categories[0].id : 1);
     const formData = new FormData();
     formData.append('file', pdfFile);
     if (coverFile) {
@@ -163,7 +164,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     formData.append('title', title.trim());
     formData.append('author', author.trim());
     formData.append('description', description.trim());
-    formData.append('categoryId', categoryId);
+    formData.append('categoryId', activeCatId);
     if (pageCount) formData.append('pageCount', pageCount);
     if (language) formData.append('language', language);
     if (publishedYear) formData.append('publishedYear', publishedYear);
@@ -436,6 +437,24 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
             Supported format: PDF up to 100MB. The backend will automatically extract page count and prepare chunked streaming.
           </p>
+
+          {message && (
+            <div style={{
+              padding: '0.9rem 1.25rem',
+              borderRadius: 8,
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              background: message.type === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
+              color: message.type === 'success' ? 'var(--color-emerald-light)' : '#fb7185',
+              border: `1px solid ${message.type === 'success' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)'}`
+            }}>
+              {message.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
+              <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>{message.text}</span>
+              <button onClick={() => setMessage(null)} style={{ color: 'inherit' }}><X size={16} /></button>
+            </div>
+          )}
 
           <form onSubmit={handleUploadSubmit}>
             {/* PDF File Picker */}

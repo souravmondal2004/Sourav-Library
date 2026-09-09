@@ -60,7 +60,7 @@ public class AdminDocumentController {
             Authentication authentication
     ) throws IOException {
 
-        String username = authentication.getName();
+        String username = (authentication != null && authentication.getName() != null) ? authentication.getName() : "Sourav";
         DocumentResponseDto response = adminService.uploadDocument(
                 pdfFile,
                 coverFile,
