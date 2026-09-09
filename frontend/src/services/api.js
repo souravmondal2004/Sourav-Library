@@ -290,22 +290,26 @@ export const api = {
       return getStoredUsers();
     },
     deleteUser: async (id) => {
+      let deleted = false;
       try {
         await request(`/auth/users/${id}`, { method: 'DELETE' });
+        deleted = true;
       } catch (e1) {
         try {
           await request(`/admin/users/${id}`, { method: 'DELETE' });
+          deleted = true;
         } catch (e2) {}
       }
-      // Also remove from local cache if present
+
+      // Sync local cache
       const stored = localStorage.getItem('scribd_registered_users');
       if (stored) {
         try {
-          const list = JSON.parse(stored).filter(u => u.id !== id);
+          const list = JSON.parse(stored).filter(u => String(u.id) !== String(id));
           localStorage.setItem('scribd_registered_users', JSON.stringify(list));
         } catch (e) {}
       }
-      return { success: true };
+      return { success: true, deleted };
     }
   },
 

@@ -20,10 +20,19 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository userRepository;
+    private final com.scribd.clone.repository.BookmarkRepository bookmarkRepository;
+    private final com.scribd.clone.repository.ReadingHistoryRepository readingHistoryRepository;
 
-    public AuthController(AuthService authService, UserRepository userRepository) {
+    public AuthController(
+            AuthService authService,
+            UserRepository userRepository,
+            com.scribd.clone.repository.BookmarkRepository bookmarkRepository,
+            com.scribd.clone.repository.ReadingHistoryRepository readingHistoryRepository
+    ) {
         this.authService = authService;
         this.userRepository = userRepository;
+        this.bookmarkRepository = bookmarkRepository;
+        this.readingHistoryRepository = readingHistoryRepository;
     }
 
     @PostMapping("/register")
@@ -69,10 +78,19 @@ public class AuthController {
         return ResponseEntity.ok(users);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         if (id == 1L) {
             return ResponseEntity.badRequest().body(Map.of("message", "Master Admin account cannot be deleted"));
+        }
+        var bookmarks = bookmarkRepository.findByUserIdOrderByCreatedAtDesc(id);
+        if (bookmarks != null && !bookmarks.isEmpty()) {
+            bookmarkRepository.deleteAll(bookmarks);
+        }
+        var history = readingHistoryRepository.findByUserIdOrderByLastReadAtDesc(id);
+        if (history != null && !history.isEmpty()) {
+            readingHistoryRepository.deleteAll(history);
         }
         userRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "User account deleted successfully", "id", id));
