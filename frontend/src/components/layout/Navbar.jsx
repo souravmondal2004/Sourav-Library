@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles } from 'lucide-react';
+import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles, Compass } from 'lucide-react';
 
 export default function Navbar({
   currentUser,
@@ -7,6 +7,8 @@ export default function Navbar({
   setCurrentView,
   searchQuery,
   setSearchQuery,
+  selectedCategory,
+  onExplore,
   onOpenAuth,
   onOpenLibrary,
   onLogout,
@@ -21,7 +23,7 @@ export default function Navbar({
         <div
           className="brand-logo"
           style={{ cursor: 'pointer' }}
-          onClick={() => setCurrentView('home')}
+          onClick={onExplore}
         >
           <div className="brand-icon-box">
             <BookOpen size={22} strokeWidth={2.5} />
@@ -61,9 +63,11 @@ export default function Navbar({
         {/* Navigation & Controls */}
         <div className="nav-actions">
           <button
-            className={`btn ${currentView === 'home' ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setCurrentView('home')}
+            className={`btn ${currentView === 'home' && !searchQuery && !selectedCategory ? 'btn-primary' : 'btn-outline'}`}
+            onClick={onExplore}
+            title="Browse all publications and categories"
           >
+            <Compass size={16} />
             Explore
           </button>
 

@@ -135,6 +135,13 @@ export default function App() {
     if (currentView === 'admin') setCurrentView('home');
   };
 
+  const handleExplore = () => {
+    setCurrentView('home');
+    setSelectedCategory(null);
+    setSearchQuery('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const primaryFeatured = featuredBooks.length > 0 ? featuredBooks[0] : books[0];
 
   return (
@@ -146,6 +153,8 @@ export default function App() {
         setCurrentView={setCurrentView}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        selectedCategory={selectedCategory}
+        onExplore={handleExplore}
         onOpenAuth={() => setShowAuthModal(true)}
         onOpenLibrary={() => setShowLibraryModal(true)}
         onLogout={handleLogout}
