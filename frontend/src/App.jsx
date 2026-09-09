@@ -10,15 +10,17 @@ import AuthModal from './components/auth/AuthModal';
 import { api, getStoredUser, getAuthToken } from './services/api';
 import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield } from 'lucide-react';
 
+import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin'
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [books, setBooks] = useState([]);
-  const [featuredBooks, setFeaturedBooks] = useState([]);
+  const [books, setBooks] = useState(INITIAL_DOCUMENTS);
+  const [featuredBooks, setFeaturedBooks] = useState(INITIAL_DOCUMENTS.filter(b => b.isFeatured));
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Modals
@@ -29,16 +31,18 @@ export default function App() {
 
   // Load initial data (categories, catalog, bookmarks)
   const fetchData = async () => {
-    setLoading(true);
-    setError(null);
     try {
       // 1. Fetch categories
       const cats = await api.categories.getAll();
-      setCategories(cats || []);
+      if (Array.isArray(cats) && cats.length > 0) {
+        setCategories(cats);
+      }
 
       // 2. Fetch featured books
       const featured = await api.documents.getFeatured();
-      setFeaturedBooks(featured || []);
+      if (Array.isArray(featured) && featured.length > 0) {
+        setFeaturedBooks(featured);
+      }
 
       // 3. Fetch catalog
       let docsResponse;
@@ -49,7 +53,9 @@ export default function App() {
       } else {
         docsResponse = await api.documents.getAll(0, 24);
       }
-      setBooks(docsResponse.content || []);
+      if (docsResponse && Array.isArray(docsResponse.content)) {
+        setBooks(docsResponse.content);
+      }
 
       // 4. If logged in, fetch bookmarks
       if (getAuthToken()) {
@@ -61,8 +67,17 @@ export default function App() {
           // Non-blocking
         }
       }
+      setError(null);
     } catch (err) {
-      setError('Unable to connect to Spring Boot backend at http://localhost:8080. Please ensure the backend server is running.');
+      // If backend is not reached, filter local initial documents gracefully
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        setBooks(INITIAL_DOCUMENTS.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)));
+      } else if (selectedCategory) {
+        setBooks(INITIAL_DOCUMENTS.filter(b => b.categoryId === selectedCategory));
+      } else {
+        setBooks(INITIAL_DOCUMENTS);
+      }
     } finally {
       setLoading(false);
     }
