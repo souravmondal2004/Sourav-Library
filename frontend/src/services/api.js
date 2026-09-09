@@ -43,12 +43,20 @@ async function request(endpoint, options = {}) {
     let errorMessage = `HTTP Error ${response.status}`;
     try {
       const errorData = await response.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
+      if (errorData.fieldErrors && typeof errorData.fieldErrors === 'object') {
+        const keys = Object.keys(errorData.fieldErrors);
+        if (keys.length > 0) {
+          errorMessage = errorData.fieldErrors[keys[0]];
+        }
+      } else {
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      }
     } catch (e) {
       // Non-JSON error
     }
     throw new Error(errorMessage);
   }
+
 
   // Check if response has content
   const contentType = response.headers.get('content-type');
@@ -136,32 +144,16 @@ export const api = {
       }
     },
     register: async (username, email, password, fullName) => {
-      try {
-        const data = await request('/auth/register', {
-          method: 'POST',
-          body: { username, email, password, fullName }
-        });
-        setAuthToken(data.token);
-        setStoredUser(data);
-        saveRegisteredUser(data);
-        return data;
-      } catch (err) {
-        const newUser = {
-          id: Date.now(),
-          username: username,
-          email: email,
-          fullName: fullName || username,
-          role: 'ROLE_USER',
-          createdAt: new Date().toISOString(),
-          booksReadCount: 0,
-          token: 'demo-user-jwt-token'
-        };
-        setAuthToken(newUser.token);
-        setStoredUser(newUser);
-        saveRegisteredUser(newUser);
-        return newUser;
-      }
+      const data = await request('/auth/register', {
+        method: 'POST',
+        body: { username, email, password, fullName }
+      });
+      setAuthToken(data.token);
+      setStoredUser(data);
+      saveRegisteredUser(data);
+      return data;
     },
+
     getMe: () => request('/auth/me'),
     logout: () => {
       removeAuthToken();

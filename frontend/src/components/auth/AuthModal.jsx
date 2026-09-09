@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { X, Shield, User, Lock, Mail, CheckCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
-export default function AuthModal({ onClose, onLoginSuccess }) {
-  const [isRegister, setIsRegister] = useState(false);
+export default function AuthModal({ onClose, onLoginSuccess, initialMode = 'login' }) {
+  const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -122,12 +123,19 @@ export default function AuthModal({ onClose, onLoginSuccess }) {
             <input
               type="password"
               required
-              placeholder="••••••••"
+              minLength={isRegister ? 6 : 1}
+              placeholder={isRegister ? "At least 6 characters" : "••••••••"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="form-input"
             />
+            {isRegister && (
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                Must be at least 6 characters
+              </span>
+            )}
           </div>
+
 
           <button
             type="submit"

@@ -26,7 +26,9 @@ export default function App() {
   // Modals
   const [activeReaderBook, setActiveReaderBook] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState('login');
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
   // Load initial data (categories, catalog, bookmarks)
@@ -83,6 +85,11 @@ export default function App() {
     }
   };
 
+  const handleOpenAuth = (mode = 'login') => {
+    setAuthInitialMode(mode);
+    setShowAuthModal(true);
+  };
+
   useEffect(() => {
     fetchData();
   }, [selectedCategory, searchQuery]);
@@ -90,7 +97,7 @@ export default function App() {
   // Handle bookmark toggle
   const handleToggleBookmark = async (documentId) => {
     if (!currentUser) {
-      setShowAuthModal(true);
+      handleOpenAuth('login');
       return;
     }
     try {
@@ -116,13 +123,13 @@ export default function App() {
       const userBookmarks = await api.library.getBookmarks();
       setBookmarkedIds(new Set((userBookmarks || []).map((b) => b.id)));
     } catch (e) {
-      setShowAuthModal(true);
+      handleOpenAuth('login');
     }
   };
 
   const handleOpenReader = (book) => {
     if (!currentUser) {
-      setShowAuthModal(true);
+      handleOpenAuth('login');
       return;
     }
     setActiveReaderBook(book);
@@ -155,11 +162,12 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         selectedCategory={selectedCategory}
         onExplore={handleExplore}
-        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenAuth={handleOpenAuth}
         onOpenLibrary={() => setShowLibraryModal(true)}
         onLogout={handleLogout}
         onQuickAdminLogin={handleQuickAdminLogin}
       />
+
 
       {/* Backend connection warning banner */}
       {error && (
@@ -324,6 +332,7 @@ export default function App() {
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
+          initialMode={authInitialMode}
           onLoginSuccess={(user) => {
             setCurrentUser(user);
             fetchData();

@@ -144,17 +144,18 @@ export default function Navbar({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <button
                 className="btn btn-outline"
-                onClick={onOpenAuth}
+                onClick={() => onOpenAuth('login')}
               >
                 Sign In
               </button>
               <button
                 className="btn btn-primary"
-                onClick={onOpenAuth}
+                onClick={() => onOpenAuth('register')}
               >
                 Join Free
               </button>
             </div>
+
           )}
         </div>
       </div>
