@@ -262,6 +262,24 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     }
   };
 
+  // Delete User Account
+  const handleDeleteUser = async (user) => {
+    if (user.role === 'ROLE_ADMIN' || user.id === 1 || user.username?.toLowerCase() === 'sourav') {
+      alert('Cannot delete the Master Admin account.');
+      return;
+    }
+    if (window.confirm(`Are you sure you want to permanently delete user "${user.username}"?`)) {
+      try {
+        await api.admin.deleteUser(user.id);
+        setUsersList(prev => prev.filter(u => u.id !== user.id));
+        setStats(prev => ({ ...prev, totalUsers: Math.max(0, (prev.totalUsers || 1) - 1) }));
+        setMessage({ type: 'success', text: `User "${user.username}" deleted successfully.` });
+      } catch (err) {
+        alert('Failed to delete user: ' + err.message);
+      }
+    }
+  };
+
   // Create Category
   const handleCreateCategory = async (e) => {
     e.preventDefault();
@@ -811,12 +829,13 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                   <th>Role & Access</th>
                   <th>Joined Date</th>
                   <th>Books Read</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {usersList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                       No registered users found.
                     </td>
                   </tr>
@@ -843,6 +862,29 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                       </td>
                       <td style={{ fontWeight: 700, color: 'var(--color-emerald-light)' }}>
                         {u.booksReadCount || 0} books
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {u.role !== 'ROLE_ADMIN' && u.id !== 1 && u.username?.toLowerCase() !== 'sourav' ? (
+                          <button
+                            className="btn btn-outline"
+                            onClick={() => handleDeleteUser(u)}
+                            style={{
+                              padding: '0.35rem 0.65rem',
+                              color: '#fb7185',
+                              borderColor: 'rgba(244, 63, 94, 0.3)',
+                              fontSize: '0.75rem',
+                              borderRadius: '6px'
+                            }}
+                            title={`Delete ${u.username}`}
+                          >
+                            <Trash2 size={13} />
+                            Delete
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                            Protected
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))

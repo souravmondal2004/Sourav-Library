@@ -288,6 +288,24 @@ export const api = {
         if (Array.isArray(users) && users.length > 0) return users;
       } catch (err) {}
       return getStoredUsers();
+    },
+    deleteUser: async (id) => {
+      try {
+        await request(`/auth/users/${id}`, { method: 'DELETE' });
+      } catch (e1) {
+        try {
+          await request(`/admin/users/${id}`, { method: 'DELETE' });
+        } catch (e2) {}
+      }
+      // Also remove from local cache if present
+      const stored = localStorage.getItem('scribd_registered_users');
+      if (stored) {
+        try {
+          const list = JSON.parse(stored).filter(u => u.id !== id);
+          localStorage.setItem('scribd_registered_users', JSON.stringify(list));
+        } catch (e) {}
+      }
+      return { success: true };
     }
   },
 

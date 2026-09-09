@@ -68,4 +68,13 @@ public class AuthController {
         )).toList();
         return ResponseEntity.ok(users);
     }
+
+    @DeleteMapping("/users/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        if (id == 1L) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Master Admin account cannot be deleted"));
+        }
+        userRepository.deleteById(id);
+        return ResponseEntity.ok(Map.of("message", "User account deleted successfully", "id", id));
+    }
 }
