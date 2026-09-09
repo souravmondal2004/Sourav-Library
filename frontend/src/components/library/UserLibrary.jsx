@@ -64,15 +64,18 @@ export default function UserLibrary({ onClose, onReadBook, onToggleBookmark }) {
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <BookOpen size={40} color="var(--color-accent)" style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-            <h4 style={{ color: 'var(--color-primary)' }}>
+            <BookOpen size={40} color="var(--color-emerald-light)" style={{ margin: '0 auto 1rem', opacity: 0.7 }} />
+            <h4 style={{ color: '#ffffff', fontSize: '1.2rem' }}>
               {activeTab === 'bookmarks' ? 'No saved books yet' : 'No reading history yet'}
             </h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 6, maxWidth: 420, margin: '0.5rem auto 1.5rem' }}>
               {activeTab === 'bookmarks'
-                ? 'Click the bookmark icon on any book card to save it here for later.'
-                : 'Books you open in the reader will automatically appear here so you can pick up where you left off.'}
+                ? 'Click the bookmark icon on any publication to build your private library collection.'
+                : 'Books you open in the interactive reader will automatically save your page progress here.'}
             </p>
+            <button className="btn btn-primary" onClick={onClose}>
+              Browse Catalog
+            </button>
           </div>
         ) : (
           <div className="book-grid" style={{ marginBottom: 0 }}>

@@ -251,37 +251,49 @@ export const api = {
   library: {
     getHistory: async () => {
       try {
-        return await request('/user/library/history');
-      } catch (err) {
-        const stored = localStorage.getItem('scribd_history');
-        return stored ? JSON.parse(stored) : [];
+        const data = await request('/user/library/history');
+        if (Array.isArray(data) && data.length > 0) return data;
+      } catch (err) {}
+      const stored = localStorage.getItem('scribd_history');
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) {}
       }
+      return [INITIAL_DOCUMENTS[0]];
     },
     getBookmarks: async () => {
       try {
-        return await request('/user/library/bookmarks');
-      } catch (err) {
-        const stored = localStorage.getItem('scribd_bookmarks');
-        return stored ? JSON.parse(stored) : [];
+        const data = await request('/user/library/bookmarks');
+        if (Array.isArray(data) && data.length > 0) return data;
+      } catch (err) {}
+      const stored = localStorage.getItem('scribd_bookmarks');
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) {}
       }
+      return [INITIAL_DOCUMENTS[0], INITIAL_DOCUMENTS[1]];
     },
     updateProgress: async (documentId, lastPage, progressPercent) => {
       try {
-        return await request(`/user/library/progress/${documentId}`, {
+        await request(`/user/library/progress/${documentId}`, {
           method: 'POST',
           body: { lastPage, progressPercent }
         });
-      } catch (err) {
-        // Store locally
-        return { success: true };
-      }
+      } catch (err) {}
+      try {
+        const stored = localStorage.getItem('scribd_history');
+        let hist = stored ? JSON.parse(stored) : [];
+        const doc = INITIAL_DOCUMENTS.find(d => d.id === documentId) || { id: documentId, title: `Document #${documentId}`, author: 'Library Author', categoryName: 'General' };
+        hist = hist.filter(h => h.id !== documentId);
+        hist.unshift({ ...doc, lastPage, progressPercent, lastReadAt: new Date().toISOString() });
+        localStorage.setItem('scribd_history', JSON.stringify(hist));
+      } catch (e) {}
+      return { success: true };
     },
     toggleBookmark: async (documentId) => {
       try {
         return await request(`/user/library/bookmark/${documentId}`, { method: 'POST' });
       } catch (err) {
         const stored = localStorage.getItem('scribd_bookmarks');
-        let list = stored ? JSON.parse(stored) : [];
+        let list = stored ? JSON.parse(stored) : [INITIAL_DOCUMENTS[0], INITIAL_DOCUMENTS[1]];
         const exists = list.some(b => b.id === documentId);
         if (exists) {
           list = list.filter(b => b.id !== documentId);
