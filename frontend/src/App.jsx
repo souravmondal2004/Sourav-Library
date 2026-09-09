@@ -8,7 +8,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
 import { api, getStoredUser, getAuthToken } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
@@ -205,6 +205,21 @@ export default function App() {
               isBookmarked={primaryFeatured ? bookmarkedIds.has(primaryFeatured.id) : false}
             />
           )}
+
+          {/* Mobile Search Bar */}
+          <div className="container" style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
+            <div className="mobile-search-bar">
+              <Search size={16} className="search-icon" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search books, authors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ padding: '0.6rem 0.85rem 0.6rem 2.4rem', fontSize: '0.85rem' }}
+              />
+            </div>
+          </div>
 
           {/* Category Filter Chips */}
           <CategoryTabs
