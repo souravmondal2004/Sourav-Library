@@ -244,13 +244,85 @@ export default function PdfReaderModal({
           </div>
         </div>
 
-        {/* Reader Stream Container */}
-        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-          <iframe
-            src={streamUrl}
-            title={book.title}
-            className="reader-content-frame"
-          />
+        {/* Reader Content Body */}
+        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {book.pages && book.pages.length > 0 ? (
+            <div style={{
+              flex: 1,
+              maxWidth: 860,
+              width: '100%',
+              margin: '0 auto',
+              padding: `${2 * (zoomLevel / 100)}rem ${2.5 * (zoomLevel / 100)}rem`,
+              fontSize: `${1.05 * (zoomLevel / 100)}rem`,
+              lineHeight: 1.8,
+              transition: 'all 0.2s ease'
+            }}>
+              {(() => {
+                const pageData = book.pages.find((p) => p.pageNumber === currentPage) || book.pages[0];
+                return (
+                  <div>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderBottom: '1px solid currentColor',
+                      opacity: 0.7,
+                      paddingBottom: '0.75rem',
+                      marginBottom: '2rem',
+                      fontSize: '0.85rem'
+                    }}>
+                      <span>{book.title}</span>
+                      <span>Page {currentPage} of {totalPages}</span>
+                    </div>
+
+                    <h2 style={{ fontSize: `${1.75 * (zoomLevel / 100)}rem`, marginBottom: '1.5rem', fontWeight: 800 }}>
+                      {pageData.title || `Page ${currentPage}`}
+                    </h2>
+
+                    <div style={{ whiteSpace: 'pre-line', marginBottom: '3rem', letterSpacing: '0.01em' }}>
+                      {pageData.content}
+                    </div>
+
+                    {/* Bottom Page Navigation Controls */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingTop: '2rem',
+                      borderTop: '1px solid rgba(128, 128, 128, 0.2)'
+                    }}>
+                      <button
+                        className="btn btn-outline"
+                        disabled={currentPage <= 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        style={{ color: 'inherit', borderColor: 'currentColor' }}
+                      >
+                        <ChevronLeft size={16} /> Previous Page
+                      </button>
+
+                      <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                        {Math.round((currentPage / totalPages) * 100)}% Completed
+                      </span>
+
+                      <button
+                        className="btn btn-primary"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      >
+                        Next Page <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <iframe
+              src={streamUrl}
+              title={book.title}
+              className="reader-content-frame"
+            />
+          )}
         </div>
       </div>
     </div>
