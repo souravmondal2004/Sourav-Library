@@ -55,7 +55,13 @@ async function request(endpoint, options = {}) {
   if (contentType && contentType.includes('application/json')) {
     return await response.json();
   }
-  return response;
+
+  // Allow raw response for binary streams, download, or covers
+  if (endpoint.includes('/stream') || endpoint.includes('/download') || endpoint.includes('/cover')) {
+    return response;
+  }
+
+  throw new Error(`Invalid non-JSON response from API (${contentType || 'empty'}). Backend server is not running on this host.`);
 }
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS, INITIAL_USERS, INITIAL_USER_LOGS } from './seedData';
@@ -218,18 +224,20 @@ export const api = {
       request(`/admin/documents/${id}`, { method: 'DELETE' }),
     getStats: async () => {
       try {
-        return await request('/admin/stats');
-      } catch (err) {
-        return {
-          totalDocuments: INITIAL_DOCUMENTS.length,
-          publishedDocuments: INITIAL_DOCUMENTS.filter(d => d.isPublished).length,
-          totalReads: 305,
-          totalDownloads: 81,
-          totalStorageBytes: 10457,
-          totalStorageFormatted: '10.2 KB',
-          totalUsers: 2
-        };
-      }
+        const data = await request('/admin/stats');
+        if (data && data.totalDocuments !== undefined) return data;
+      } catch (err) {}
+      return {
+        totalDocuments: INITIAL_DOCUMENTS.length,
+        publishedDocuments: INITIAL_DOCUMENTS.filter(d => d.isPublished).length,
+        totalViews: 305,
+        totalReads: 305,
+        totalDownloads: 81,
+        totalStorageBytes: 10457,
+        formattedStorage: '10.2 KB',
+        totalStorageFormatted: '10.2 KB',
+        totalUsers: 2
+      };
     },
     getUserActivity: async () => {
       try {
