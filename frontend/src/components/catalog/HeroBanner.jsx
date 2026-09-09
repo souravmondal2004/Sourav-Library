@@ -39,7 +39,7 @@ export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark,
           <p className="hero-desc">
             {featuredBook.description || 'Immerse yourself in this curated publication. Seamlessly stream with high-fidelity rendering, responsive zoom, night mode, and bookmarking.'}
           </p>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="hero-buttons" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <button
               className="btn btn-primary"
               style={{ padding: '0.8rem 1.8rem', fontSize: '1rem' }}

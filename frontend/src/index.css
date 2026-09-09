@@ -865,18 +865,22 @@ button {
 
   /* Hero Section */
   .hero-section {
-    padding: 1.5rem 0 2rem 0;
+    padding: 1.25rem 0 1.75rem 0;
   }
   .hero-title {
-    font-size: 1.65rem;
-    line-height: 1.2;
-    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin-bottom: 0.6rem;
+    word-break: break-word;
   }
   .hero-desc {
-    font-size: 0.88rem;
-    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
   }
   .hero-content {
+    display: flex;
+    flex-direction: column;
     gap: 1.25rem;
   }
   .hero-featured-card {
@@ -885,6 +889,17 @@ button {
     gap: 1rem;
     align-items: center;
     text-align: center;
+  }
+  .hero-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 0.65rem;
+    width: 100%;
+  }
+  .hero-buttons .btn {
+    flex: 1;
+    padding: 0.65rem 0.75rem !important;
+    font-size: 0.82rem !important;
   }
 
   /* Mobile Search Bar Display */
