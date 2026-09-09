@@ -1,0 +1,258 @@
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Sun,
+  Moon,
+  Coffee,
+  Bookmark,
+  Download,
+  BookOpen
+} from 'lucide-react';
+import { api } from '../../services/api';
+
+export default function PdfReaderModal({
+  book,
+  onClose,
+  currentUser,
+  isBookmarked,
+  onToggleBookmark
+}) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [theme, setTheme] = useState('light'); // 'light', 'sepia', 'dark'
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const totalPages = book.pageCount || 1;
+  const streamUrl = `${api.documents.getStreamUrl(book.id)}#page=${currentPage}&zoom=${zoomLevel}`;
+
+  // Automatically save reading progress periodically or when page changes
+  useEffect(() => {
+    if (currentUser && book) {
+      const progressPercent = Math.min(100, Math.round((currentPage / totalPages) * 100));
+      api.library.updateProgress(book.id, currentPage, progressPercent).catch(() => {});
+    }
+  }, [currentPage, book, currentUser, totalPages]);
+
+  // Handle keyboard navigation (ArrowLeft, ArrowRight, Esc)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        setCurrentPage((prev) => Math.min(totalPages, prev + 1));
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        setCurrentPage((prev) => Math.max(1, prev - 1));
+      } else if (e.key === 'Escape' && !isFullscreen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [totalPages, isFullscreen, onClose]);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  return (
+    <div className="reader-modal-backdrop" onClick={onClose}>
+      <div
+        className={`reader-modal-window reader-theme-${theme}`}
+        style={isFullscreen ? { maxWidth: '100vw', height: '100vh', borderRadius: 0 } : {}}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Reader Toolbar */}
+        <div className="reader-toolbar">
+          {/* Left: Book Meta & Close */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={onClose}
+              className="btn btn-outline"
+              style={{ padding: '0.45rem', borderRadius: '50%' }}
+              title="Close Reader (Esc)"
+            >
+              <X size={18} />
+            </button>
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, maxWidth: 350, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {book.title}
+              </h3>
+              <p style={{ fontSize: '0.75rem', opacity: 0.75, margin: 0 }}>
+                {book.author} • {book.categoryName}
+              </p>
+            </div>
+          </div>
+
+          {/* Center: Page Controls */}
+          <div className="reader-toolbar-center">
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              title="Previous Page"
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 600 }}>
+              <span>Page</span>
+              <input
+                type="number"
+                min={1}
+                max={totalPages}
+                value={currentPage}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                    setCurrentPage(val);
+                  }
+                }}
+                style={{
+                  width: 44,
+                  padding: '2px 4px',
+                  textAlign: 'center',
+                  borderRadius: 4,
+                  border: '1px solid var(--border-color)',
+                  background: 'inherit',
+                  color: 'inherit',
+                  fontWeight: 700
+                }}
+              />
+              <span>of {totalPages}</span>
+            </div>
+
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              title="Next Page"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Right: Theme, Zoom, Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Theme switcher */}
+            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: 2 }}>
+              <button
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: 4,
+                  background: theme === 'light' ? '#fff' : 'transparent',
+                  color: theme === 'light' ? '#002e3b' : 'inherit'
+                }}
+                onClick={() => setTheme('light')}
+                title="Light Mode"
+              >
+                <Sun size={15} />
+              </button>
+              <button
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: 4,
+                  background: theme === 'sepia' ? '#fbf0d9' : 'transparent',
+                  color: theme === 'sepia' ? '#5f4b32' : 'inherit'
+                }}
+                onClick={() => setTheme('sepia')}
+                title="Sepia Warm Mode"
+              >
+                <Coffee size={15} />
+              </button>
+              <button
+                style={{
+                  padding: '4px 6px',
+                  borderRadius: 4,
+                  background: theme === 'dark' ? '#0f172a' : 'transparent',
+                  color: theme === 'dark' ? '#fff' : 'inherit'
+                }}
+                onClick={() => setTheme('dark')}
+                title="Night Mode"
+              >
+                <Moon size={15} />
+              </button>
+            </div>
+
+            {/* Zoom */}
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+              title="Zoom Out"
+            >
+              <ZoomOut size={16} />
+            </button>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, minWidth: 36, textAlign: 'center' }}>
+              {zoomLevel}%
+            </span>
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              onClick={() => setZoomLevel((z) => Math.min(200, z + 15))}
+              title="Zoom In"
+            >
+              <ZoomIn size={16} />
+            </button>
+
+            {/* Bookmark */}
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              onClick={() => onToggleBookmark(book.id)}
+              title={isBookmarked ? 'Remove Bookmark' : 'Bookmark this Book'}
+            >
+              <Bookmark
+                size={16}
+                fill={isBookmarked ? '#ff5e36' : 'transparent'}
+                color={isBookmarked ? '#ff5e36' : 'currentColor'}
+              />
+            </button>
+
+            {/* Download */}
+            <a
+              href={api.documents.getDownloadUrl(book.id)}
+              download
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              title="Download PDF"
+            >
+              <Download size={16} />
+            </a>
+
+            {/* Fullscreen */}
+            <button
+              className="btn btn-outline"
+              style={{ padding: '0.4rem' }}
+              onClick={toggleFullscreen}
+              title="Toggle Fullscreen"
+            >
+              <Maximize size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Reader Stream Container */}
+        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+          <iframe
+            src={streamUrl}
+            title={book.title}
+            className="reader-content-frame"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
