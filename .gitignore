@@ -28,3 +28,11 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Persistent Local Database & Uploads
+data/
+**/data/
+*.mv.db
+*.trace.db
+uploads/
+**/uploads/

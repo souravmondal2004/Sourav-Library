@@ -10,8 +10,8 @@ FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Create uploads directories
-RUN mkdir -p /app/uploads/documents /app/uploads/covers
+# Create uploads and data directories
+RUN mkdir -p /app/uploads/documents /app/uploads/covers /app/data
 
 EXPOSE 8080
 ENV SPRING_PROFILES_ACTIVE=dev

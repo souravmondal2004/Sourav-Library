@@ -64,11 +64,7 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(admin);
             log.info("Initialized ADMIN account: Sourav / Sourav@2004");
         } else {
-            admin.setPassword(passwordEncoder.encode("Sourav@2004"));
-            admin.setRole("ROLE_ADMIN");
-            admin.setFullName("Sourav (Admin)");
-            userRepository.save(admin);
-            log.info("Updated ADMIN account: Sourav / Sourav@2004");
+            log.info("ADMIN account Sourav already exists. Preserving existing credentials.");
         }
 
         if (!userRepository.existsByUsername("admin")) {
@@ -76,13 +72,16 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(altAdmin);
             log.info("Initialized default ADMIN account: admin / admin123");
         } else {
-            User existingAdmin = userRepository.findByUsername("admin").get();
-            existingAdmin.setPassword(passwordEncoder.encode("admin123"));
-            existingAdmin.setRole("ROLE_ADMIN");
-            userRepository.save(existingAdmin);
+            log.info("ADMIN account admin already exists. Preserving existing credentials.");
         }
 
-        return admin;
+        if (!userRepository.existsByUsername("user")) {
+            User defaultReader = new User("user", "user@sourav-library.com", passwordEncoder.encode("user123"), "ROLE_USER", "Standard Reader");
+            userRepository.save(defaultReader);
+            log.info("Initialized default READER account: user / user123");
+        }
+
+        return admin != null ? admin : userRepository.findByUsername("Sourav").orElse(null);
     }
 
     private void initCategories() {
@@ -101,6 +100,12 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initSampleDocuments(User admin) {
+        File marker = new File("data/.initialized");
+        if (marker.exists()) {
+            log.info("Database catalog was previously initialized. Preserving all user documents, uploads, and deletions.");
+            return;
+        }
+
         if (documentRepository.count() == 0) {
             Category tech = categoryRepository.findBySlug("technology-coding").orElse(null);
             Category business = categoryRepository.findBySlug("business-leadership").orElse(null);
@@ -153,6 +158,17 @@ public class DataInitializer implements CommandLineRunner {
                         "Foundations of Quantum Computing"
                 );
             }
+        }
+
+        try {
+            File parent = marker.getParentFile();
+            if (parent != null && !parent.exists()) {
+                parent.mkdirs();
+            }
+            marker.createNewFile();
+            log.info("Created initialization marker flag: {}", marker.getAbsolutePath());
+        } catch (IOException e) {
+            log.warn("Could not create initialization marker file: {}", e.getMessage());
         }
     }
 
