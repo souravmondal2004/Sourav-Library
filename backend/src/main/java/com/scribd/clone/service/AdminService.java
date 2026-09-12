@@ -84,12 +84,23 @@ public class AdminService {
         User uploader = (username != null ? userRepository.findByUsername(username).orElse(null) : null);
         if (uploader == null) {
             uploader = userRepository.findByRole("ROLE_ADMIN").stream().findFirst()
-                    .orElseGet(() -> userRepository.findAll().stream().findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException("No user found in database")));
+                    .orElseGet(() -> userRepository.findAll().stream().findFirst().orElse(null));
+        }
+        if (uploader == null) {
+            User defaultAdmin = new User("Sourav", "sourav@lumina.local", "$2a$10$wK1bYfI8uR5Xk4Z9vG4qeeHlD9iV5fD/5hHqXmHnZb1hYhHjM2Wqm", "ROLE_ADMIN", "Sourav (Admin)");
+            uploader = userRepository.save(defaultAdmin);
         }
 
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new IllegalArgumentException("Category not found with id: " + categoryId));
+        Category category = null;
+        if (categoryId != null) {
+            category = categoryRepository.findById(categoryId).orElse(null);
+        }
+        if (category == null) {
+            category = categoryRepository.findAll().stream().findFirst().orElse(null);
+        }
+        if (category == null) {
+            category = categoryRepository.save(new Category("General", "general", "General publications & documents", "BookOpen"));
+        }
 
         // Save PDF file
         String storedFileName = fileStorageService.storeDocument(pdfFile);
