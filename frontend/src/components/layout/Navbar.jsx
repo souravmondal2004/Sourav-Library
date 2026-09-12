@@ -8,6 +8,7 @@ export default function Navbar({
   searchQuery,
   setSearchQuery,
   selectedCategory,
+  serverOnline = true,
   onExplore,
   onOpenAuth,
   onOpenLibrary,
@@ -32,6 +33,13 @@ export default function Navbar({
             Lumina<span style={{ color: 'var(--color-emerald-light)' }}>.</span>
           </span>
           <span className="brand-badge">Oracle Edition</span>
+          <span
+            className={`server-status-pill ${serverOnline ? 'online' : 'offline'}`}
+            title={serverOnline ? 'Connected to local Spring Boot & Oracle database' : 'Backend is offline. Double-click start-all.bat to connect.'}
+          >
+            <span className="status-dot"></span>
+            {serverOnline ? 'Online' : 'Offline'}
+          </span>
         </div>
 
         {/* Search */}

@@ -100,6 +100,11 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void initSampleDocuments(User admin) {
+        if (documentRepository.count() > 0) {
+            log.info("Database catalog already contains {} documents. Preserving all user documents, uploads, and deletions.", documentRepository.count());
+            return;
+        }
+
         File marker = new File("data/.initialized");
         if (marker.exists()) {
             log.info("Database catalog was previously initialized. Preserving all user documents, uploads, and deletions.");
@@ -189,6 +194,13 @@ public class DataInitializer implements CommandLineRunner {
             Path targetPath = fileStorageService.getDocumentsPath().resolve(fileName);
             if (!targetPath.toFile().exists()) {
                 generateSamplePdf(targetPath.toFile(), title, author, headerText, pageCount);
+            }
+
+            if (targetPath.toFile().exists()) {
+                try {
+                    byte[] bytes = java.nio.file.Files.readAllBytes(targetPath);
+                    fileStorageService.storeDirectly(fileName, bytes, "application/pdf");
+                } catch (Exception ignored) {}
             }
 
             Document doc = new Document();

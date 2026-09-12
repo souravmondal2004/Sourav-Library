@@ -7,8 +7,8 @@ import PdfReaderModal from './components/reader/PdfReaderModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
-import { api, getStoredUser, getAuthToken } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search } from 'lucide-react';
+import { api, getStoredUser, getAuthToken, getCachedDocuments } from './services/api';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
@@ -17,11 +17,12 @@ export default function App() {
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin'
   const [categories, setCategories] = useState(INITIAL_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [books, setBooks] = useState(INITIAL_DOCUMENTS);
-  const [featuredBooks, setFeaturedBooks] = useState(INITIAL_DOCUMENTS.filter(b => b.isFeatured));
+  const [books, setBooks] = useState(getCachedDocuments());
+  const [featuredBooks, setFeaturedBooks] = useState(getCachedDocuments().filter(b => b.isFeatured));
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [serverOnline, setServerOnline] = useState(true);
 
   // Modals
   const [activeReaderBook, setActiveReaderBook] = useState(null);
@@ -31,8 +32,28 @@ export default function App() {
 
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
+  // Listen to server status notifications
+  useEffect(() => {
+    const handleStatus = (e) => {
+      if (e.detail) {
+        const isOnline = e.detail.online;
+        setServerOnline(isOnline);
+        if (!isOnline) {
+          setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Your uploaded documents & database are safely preserved! Run start-all.bat to reconnect.');
+        } else {
+          setError(null);
+        }
+      }
+    };
+
+    window.addEventListener('scribd-server-status', handleStatus);
+    api.system.checkHealth();
+    return () => window.removeEventListener('scribd-server-status', handleStatus);
+  }, []);
+
   // Load initial data (categories, catalog, bookmarks)
   const fetchData = async () => {
+    setLoading(true);
     try {
       // 1. Fetch categories
       const cats = await api.categories.getAll();
@@ -70,15 +91,18 @@ export default function App() {
         }
       }
       setError(null);
+      setServerOnline(true);
     } catch (err) {
-      // If backend is not reached, filter local initial documents gracefully
+      setServerOnline(false);
+      setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Your uploaded documents & database are safely preserved on disk! Run start-all.bat to reconnect.');
+      const cached = getCachedDocuments();
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        setBooks(INITIAL_DOCUMENTS.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)));
+        setBooks(cached.filter(b => (b.title && b.title.toLowerCase().includes(q)) || (b.author && b.author.toLowerCase().includes(q))));
       } else if (selectedCategory) {
-        setBooks(INITIAL_DOCUMENTS.filter(b => b.categoryId === selectedCategory));
+        setBooks(cached.filter(b => b.categoryId === selectedCategory));
       } else {
-        setBooks(INITIAL_DOCUMENTS);
+        setBooks(cached);
       }
     } finally {
       setLoading(false);
@@ -161,6 +185,7 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         selectedCategory={selectedCategory}
+        serverOnline={serverOnline}
         onExplore={handleExplore}
         onOpenAuth={handleOpenAuth}
         onOpenLibrary={() => setShowLibraryModal(true)}
@@ -168,29 +193,32 @@ export default function App() {
         onQuickAdminLogin={handleQuickAdminLogin}
       />
 
-
       {/* Backend connection warning banner */}
-      {error && (
+      {(!serverOnline || error) && (
         <div style={{
-          background: '#fef3c7',
-          borderBottom: '1px solid #fde68a',
-          color: '#92400e',
-          padding: '0.75rem',
+          background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.15))',
+          borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+          color: '#fca5a5',
+          padding: '0.85rem 1.5rem',
           textAlign: 'center',
           fontSize: '0.88rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8
+          gap: 12,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
         }}>
-          <AlertCircle size={16} />
-          <span>{error}</span>
+          <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+          <span style={{ color: '#f3f4f6' }}>
+            <strong style={{ color: '#f87171' }}>Backend Server Offline:</strong>{' '}
+            The system server stopped when your laptop was closed or restarted. Your uploaded books and data are <strong>100% safely preserved</strong> on disk! Double-click <code>start-all.bat</code> to reconnect.
+          </span>
           <button
-            className="btn btn-outline"
-            style={{ padding: '2px 8px', fontSize: '0.75rem', marginLeft: 8 }}
+            className="btn btn-primary"
+            style={{ padding: '4px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
             onClick={fetchData}
           >
-            Retry Connection
+            <RefreshCw size={13} /> Retry Connection
           </button>
         </div>
       )}

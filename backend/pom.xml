@@ -52,6 +52,13 @@
             <version>23.4.0.24.05</version>
         </dependency>
 
+        <!-- PostgreSQL Driver for Cloud Database (Render / Neon / Supabase) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- H2 Database for local Dev Profile fallback -->
         <dependency>
             <groupId>com.h2database</groupId>

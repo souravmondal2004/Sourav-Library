@@ -16,6 +16,13 @@ export const getStoredUser = () => {
 export const setStoredUser = (user) => localStorage.setItem('scribd_user', JSON.stringify(user));
 export const removeStoredUser = () => localStorage.removeItem('scribd_user');
 
+// Server connection status notifier
+export const notifyServerStatus = (online, error = null) => {
+  window.dispatchEvent(new CustomEvent('scribd-server-status', {
+    detail: { online, error, timestamp: Date.now() }
+  }));
+};
+
 // Base fetch wrapper
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -32,7 +39,14 @@ async function request(endpoint, options = {}) {
     options.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, { ...options, headers });
+  let response;
+  try {
+    response = await fetch(url, { ...options, headers });
+    notifyServerStatus(true);
+  } catch (fetchErr) {
+    notifyServerStatus(false, fetchErr.message);
+    throw fetchErr;
+  }
 
   if (response.status === 401) {
     // Token expired or unauthorized
@@ -57,7 +71,6 @@ async function request(endpoint, options = {}) {
     throw new Error(errorMessage);
   }
 
-
   // Check if response has content
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
@@ -73,6 +86,24 @@ async function request(endpoint, options = {}) {
 }
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS, INITIAL_USERS, INITIAL_USER_LOGS } from './seedData';
+
+// Document caching helpers to preserve uploaded files across offline/server restarts
+export const getCachedDocuments = () => {
+  const stored = localStorage.getItem('scribd_cached_catalog');
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) {}
+  }
+  return INITIAL_DOCUMENTS;
+};
+
+export const setCachedDocuments = (docs) => {
+  if (Array.isArray(docs) && docs.length > 0) {
+    localStorage.setItem('scribd_cached_catalog', JSON.stringify(docs));
+  }
+};
 
 export const getStoredUsers = () => {
   const stored = localStorage.getItem('scribd_registered_users');
@@ -169,30 +200,43 @@ export const api = {
   documents: {
     getAll: async (page = 0, size = 12, sortBy = 'createdAt', sortDir = 'desc') => {
       try {
-        return await request(`/documents?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+        const data = await request(`/documents?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
+        if (data && Array.isArray(data.content) && data.content.length > 0) {
+          setCachedDocuments(data.content);
+        }
+        return data;
       } catch (err) {
-        return { content: INITIAL_DOCUMENTS, totalElements: INITIAL_DOCUMENTS.length };
+        const cached = getCachedDocuments();
+        return { content: cached, totalElements: cached.length, isOffline: true };
       }
     },
     getFeatured: async () => {
       try {
-        return await request('/documents/featured');
+        const data = await request('/documents/featured');
+        if (Array.isArray(data) && data.length > 0) {
+          localStorage.setItem('scribd_cached_featured', JSON.stringify(data));
+        }
+        return data;
       } catch (err) {
-        return INITIAL_DOCUMENTS.filter(b => b.isFeatured);
+        const cached = getCachedDocuments();
+        const featured = cached.filter(b => b.isFeatured);
+        return featured.length > 0 ? featured : INITIAL_DOCUMENTS.filter(b => b.isFeatured);
       }
     },
     getPopular: async () => {
       try {
         return await request('/documents/popular');
       } catch (err) {
-        return INITIAL_DOCUMENTS;
+        return getCachedDocuments();
       }
     },
     getByCategory: async (categoryId, page = 0, size = 12) => {
       try {
         return await request(`/documents/category/${categoryId}?page=${page}&size=${size}`);
       } catch (err) {
-        return { content: INITIAL_DOCUMENTS.filter(b => b.categoryId === categoryId), totalElements: INITIAL_DOCUMENTS.length };
+        const cached = getCachedDocuments();
+        const filtered = cached.filter(b => b.categoryId === categoryId);
+        return { content: filtered, totalElements: filtered.length, isOffline: true };
       }
     },
     search: async (query, page = 0, size = 12) => {
@@ -200,8 +244,9 @@ export const api = {
         return await request(`/documents/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`);
       } catch (err) {
         const q = query.toLowerCase();
-        const filtered = INITIAL_DOCUMENTS.filter(b => b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q));
-        return { content: filtered, totalElements: filtered.length };
+        const cached = getCachedDocuments();
+        const filtered = cached.filter(b => (b.title && b.title.toLowerCase().includes(q)) || (b.author && b.author.toLowerCase().includes(q)));
+        return { content: filtered, totalElements: filtered.length, isOffline: true };
       }
     },
     getDetails: (id) => request(`/documents/${id}`),
@@ -230,9 +275,14 @@ export const api = {
         let url = `/admin/documents?page=${page}&size=${size}`;
         if (query) url += `&query=${encodeURIComponent(query)}`;
         if (categoryId) url += `&categoryId=${categoryId}`;
-        return await request(url);
+        const data = await request(url);
+        if (data && Array.isArray(data.content) && data.content.length > 0) {
+          setCachedDocuments(data.content);
+        }
+        return data;
       } catch (err) {
-        return { content: INITIAL_DOCUMENTS, totalElements: INITIAL_DOCUMENTS.length };
+        const cached = getCachedDocuments();
+        return { content: cached, totalElements: cached.length, isOffline: true };
       }
     },
     uploadDocument: async (formData) => {
@@ -398,5 +448,20 @@ export const api = {
     },
     getBookmarkStatus: (documentId) =>
       request(`/user/library/bookmark/${documentId}/status`)
+  },
+
+  // System Health & Server Connectivity
+  system: {
+    checkHealth: async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/documents?page=0&size=1`);
+        const isOnline = res.ok;
+        notifyServerStatus(isOnline);
+        return isOnline;
+      } catch (err) {
+        notifyServerStatus(false, err.message);
+        return false;
+      }
+    }
   }
 };
