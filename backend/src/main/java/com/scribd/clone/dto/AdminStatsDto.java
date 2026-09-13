@@ -9,12 +9,15 @@ public class AdminStatsDto {
     private long totalUsers;
     private long totalStorageBytes;
     private String formattedStorage;
+    private String databaseType;
+    private boolean isPersistent;
 
     public AdminStatsDto() {}
 
     public AdminStatsDto(long totalDocuments, long publishedDocuments, long totalViews, 
                          long totalDownloads, long totalCategories, long totalUsers, 
-                         long totalStorageBytes, String formattedStorage) {
+                         long totalStorageBytes, String formattedStorage,
+                         String databaseType, boolean isPersistent) {
         this.totalDocuments = totalDocuments;
         this.publishedDocuments = publishedDocuments;
         this.totalViews = totalViews;
@@ -23,6 +26,8 @@ public class AdminStatsDto {
         this.totalUsers = totalUsers;
         this.totalStorageBytes = totalStorageBytes;
         this.formattedStorage = formattedStorage;
+        this.databaseType = databaseType;
+        this.isPersistent = isPersistent;
     }
 
     public long getTotalDocuments() { return totalDocuments; }
@@ -41,4 +46,10 @@ public class AdminStatsDto {
     public void setTotalStorageBytes(long totalStorageBytes) { this.totalStorageBytes = totalStorageBytes; }
     public String getFormattedStorage() { return formattedStorage; }
     public void setFormattedStorage(String formattedStorage) { this.formattedStorage = formattedStorage; }
+
+    public String getDatabaseType() { return databaseType; }
+    public void setDatabaseType(String databaseType) { this.databaseType = databaseType; }
+
+    public boolean isPersistent() { return isPersistent; }
+    public void setPersistent(boolean persistent) { isPersistent = persistent; }
 }

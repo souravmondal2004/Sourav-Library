@@ -136,19 +136,40 @@ import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS, INITIAL_USERS, INITIAL_USER_LOGS
 // Document caching helpers to preserve uploaded files across offline/server restarts
 export const getCachedDocuments = () => {
   const stored = localStorage.getItem('scribd_cached_catalog');
-  if (stored) {
+  if (stored !== null) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch (e) {}
   }
   return INITIAL_DOCUMENTS;
 };
 
 export const setCachedDocuments = (docs) => {
-  if (Array.isArray(docs) && docs.length > 0) {
+  if (Array.isArray(docs)) {
     localStorage.setItem('scribd_cached_catalog', JSON.stringify(docs));
   }
+};
+
+export const addDocumentToCache = (newDoc) => {
+  if (!newDoc) return;
+  const list = getCachedDocuments();
+  const filtered = list.filter(d => String(d.id) !== String(newDoc.id));
+  filtered.unshift(newDoc);
+  setCachedDocuments(filtered);
+};
+
+export const removeDocumentFromCache = (id) => {
+  const list = getCachedDocuments();
+  const filtered = list.filter(d => String(d.id) !== String(id));
+  setCachedDocuments(filtered);
+};
+
+export const updateDocumentInCache = (updatedDoc) => {
+  if (!updatedDoc) return;
+  const list = getCachedDocuments();
+  const updated = list.map(d => (String(d.id) === String(updatedDoc.id) ? { ...d, ...updatedDoc } : d));
+  setCachedDocuments(updated);
 };
 
 export const getStoredUsers = () => {
@@ -338,8 +359,9 @@ export const api = {
         token = (user && user.token) ? user.token : (user?.username === 'Sourav' ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token');
         setAuthToken(token);
       }
+      let uploadedDoc = null;
       try {
-        return await request('/admin/documents/upload', {
+        uploadedDoc = await request('/admin/documents/upload', {
           method: 'POST',
           body: formData
         });
@@ -348,41 +370,62 @@ export const api = {
         if (err.message && (err.message.includes('401') || err.message.includes('expired') || err.message.includes('authenticated') || err.message.includes('403') || err.message.includes('Forbidden'))) {
           const fallbackToken = (user?.username === 'Sourav') ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token';
           setAuthToken(fallbackToken);
-          return await request('/admin/documents/upload', {
+          uploadedDoc = await request('/admin/documents/upload', {
             method: 'POST',
             body: formData,
             headers: {
               'Authorization': `Bearer ${fallbackToken}`
             }
           });
+        } else {
+          throw err;
         }
-        throw err;
       }
+
+      if (uploadedDoc) {
+        addDocumentToCache(uploadedDoc);
+      }
+      return uploadedDoc;
     },
-    updateDocument: (id, data) =>
-      request(`/admin/documents/${id}`, { method: 'PUT', body: data }),
-    togglePublish: (id) =>
-      request(`/admin/documents/${id}/toggle-publish`, { method: 'PATCH' }),
-    toggleFeatured: (id) =>
-      request(`/admin/documents/${id}/toggle-featured`, { method: 'PATCH' }),
-    deleteDocument: (id) =>
-      request(`/admin/documents/${id}`, { method: 'DELETE' }),
+    updateDocument: async (id, data) => {
+      const updated = await request(`/admin/documents/${id}`, { method: 'PUT', body: data });
+      if (updated) updateDocumentInCache(updated);
+      return updated;
+    },
+    togglePublish: async (id) => {
+      const updated = await request(`/admin/documents/${id}/toggle-publish`, { method: 'PATCH' });
+      if (updated) updateDocumentInCache(updated);
+      return updated;
+    },
+    toggleFeatured: async (id) => {
+      const updated = await request(`/admin/documents/${id}/toggle-featured`, { method: 'PATCH' });
+      if (updated) updateDocumentInCache(updated);
+      return updated;
+    },
+    deleteDocument: async (id) => {
+      const res = await request(`/admin/documents/${id}`, { method: 'DELETE' });
+      removeDocumentFromCache(id);
+      return res;
+    },
     getStats: async () => {
       try {
         const data = await request('/admin/stats');
         if (data && data.totalDocuments !== undefined) return data;
       } catch (err) {}
       const users = getStoredUsers();
+      const docs = getCachedDocuments();
       return {
-        totalDocuments: INITIAL_DOCUMENTS.length,
-        publishedDocuments: INITIAL_DOCUMENTS.filter(d => d.isPublished).length,
+        totalDocuments: docs.length,
+        publishedDocuments: docs.filter(d => d.isPublished).length,
         totalViews: 305,
         totalReads: 305,
         totalDownloads: 81,
         totalStorageBytes: 10457,
         formattedStorage: '10.2 KB',
         totalStorageFormatted: '10.2 KB',
-        totalUsers: users.length
+        totalUsers: users.length,
+        databaseType: 'Connecting to Cloud Database...',
+        isPersistent: false
       };
     },
     getUserActivity: async () => {

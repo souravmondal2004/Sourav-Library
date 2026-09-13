@@ -99,15 +99,34 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     private void initSampleDocuments(User admin) {
         if (documentRepository.count() > 0) {
             log.info("Database catalog already contains {} documents. Preserving all user documents, uploads, and deletions.", documentRepository.count());
+            markCatalogInitializedInDatabase();
             return;
         }
 
+        // 1. Check permanent database flag
+        if (isCatalogInitializedInDatabase()) {
+            log.info("Database catalog was previously initialized (verified via database APP_METADATA). Preserving all user deletions and state.");
+            return;
+        }
+
+        // 2. Check disk marker flag as secondary check
         File marker = new File("data/.initialized");
         if (marker.exists()) {
-            log.info("Database catalog was previously initialized. Preserving all user documents, uploads, and deletions.");
+            log.info("Database catalog was previously initialized (verified via disk flag). Preserving all user documents, uploads, and deletions.");
+            markCatalogInitializedInDatabase();
+            return;
+        }
+
+        // 3. If categories already exist, the database has been used before
+        if (categoryRepository.count() > 0 && userRepository.count() > 1) {
+            log.info("Existing categories/users detected in database. Catalog was previously modified; skipping sample re-generation.");
+            markCatalogInitializedInDatabase();
             return;
         }
 
@@ -165,6 +184,8 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        // Mark initialized both in DB and disk
+        markCatalogInitializedInDatabase();
         try {
             File parent = marker.getParentFile();
             if (parent != null && !parent.exists()) {
@@ -174,6 +195,42 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Created initialization marker flag: {}", marker.getAbsolutePath());
         } catch (IOException e) {
             log.warn("Could not create initialization marker file: {}", e.getMessage());
+        }
+    }
+
+    private boolean isCatalogInitializedInDatabase() {
+        if (jdbcTemplate == null) return false;
+        try {
+            ensureMetadataTableExists();
+            Integer count = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM APP_METADATA WHERE META_KEY = 'CATALOG_INITIALIZED'", Integer.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void markCatalogInitializedInDatabase() {
+        if (jdbcTemplate == null) return;
+        try {
+            ensureMetadataTableExists();
+            jdbcTemplate.update("DELETE FROM APP_METADATA WHERE META_KEY = 'CATALOG_INITIALIZED'");
+            jdbcTemplate.update("INSERT INTO APP_METADATA (META_KEY, META_VALUE) VALUES ('CATALOG_INITIALIZED', 'true')");
+            log.info("Successfully recorded permanent CATALOG_INITIALIZED flag in database.");
+        } catch (Exception e) {
+            log.warn("Could not record initialized flag in database: {}", e.getMessage());
+        }
+    }
+
+    private void ensureMetadataTableExists() {
+        if (jdbcTemplate == null) return;
+        try {
+            jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS APP_METADATA (META_KEY VARCHAR(100) PRIMARY KEY, META_VALUE VARCHAR(255))");
+        } catch (Exception e) {
+            // Fallback for Oracle prior to 23ai
+            try {
+                jdbcTemplate.execute("CREATE TABLE APP_METADATA (META_KEY VARCHAR2(100) PRIMARY KEY, META_VALUE VARCHAR2(255))");
+            } catch (Exception ignored) {}
         }
     }
 

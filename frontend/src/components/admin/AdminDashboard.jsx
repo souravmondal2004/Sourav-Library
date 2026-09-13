@@ -21,6 +21,7 @@ import {
   Plus,
   Search,
   RefreshCw,
+  Database,
   X
 } from 'lucide-react';
 import { api, getStoredUsers } from '../../services/api';
@@ -417,6 +418,42 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
               <div className="stat-val">{stats?.formattedStorage ?? stats?.totalStorageFormatted ?? '10.2 KB'}</div>
               <div className="stat-lbl">Disk Storage Used</div>
             </div>
+          </div>
+          <div className="stat-card" style={{ borderColor: stats?.isPersistent ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)' }}>
+            <div className="stat-icon" style={{ background: stats?.isPersistent ? '#dcfce7' : '#fef3c7', color: stats?.isPersistent ? '#16a34a' : '#d97706' }}>
+              <Database size={24} />
+            </div>
+            <div>
+              <div className="stat-val" style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: 2 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: stats?.isPersistent ? '#10b981' : '#f59e0b',
+                  display: 'inline-block'
+                }}></span>
+                {stats?.databaseType || (stats?.isPersistent ? 'PostgreSQL (Cloud)' : 'Local H2')}
+              </div>
+              <div className="stat-lbl">{stats?.isPersistent ? 'Permanent Cloud DB' : 'Ephemeral Storage'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stats && !stats.isPersistent && (
+        <div style={{
+          padding: '0.9rem 1.25rem',
+          borderRadius: 8,
+          marginBottom: '1.25rem',
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          color: '#d97706',
+          fontSize: '0.85rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem'
+        }}>
+          <Database size={20} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong>Ephemeral Container Storage:</strong> Render free containers reset when idle. To make your uploaded books and deletions 100% permanent across offline periods, add a free PostgreSQL cloud database (e.g. from <a href="https://neon.tech" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', fontWeight: 600, color: 'inherit' }}>Neon.tech</a> or Render Postgres) by adding <code>DATABASE_URL</code> to your Render backend environment variables.
           </div>
         </div>
       )}

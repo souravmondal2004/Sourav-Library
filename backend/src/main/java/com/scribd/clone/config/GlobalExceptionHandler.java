@@ -53,9 +53,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(OutOfMemoryError.class)
+    public ResponseEntity<Map<String, Object>> handleOutOfMemory(OutOfMemoryError ex) {
+        System.gc();
+        return buildErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE,
+                "Server memory limit reached while processing this PDF. Please ensure the file is under 100MB or compress it before uploading.");
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneralException(Exception ex) {
         return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage() != null ? ex.getMessage() : "Internal server error occurred");
+    }
+
+    @ExceptionHandler(Throwable.class)
+    public ResponseEntity<Map<String, Object>> handleThrowable(Throwable ex) {
+        return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected server error occurred: " + (ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName()));
     }
 
     private ResponseEntity<Map<String, Object>> buildErrorResponse(HttpStatus status, String message) {

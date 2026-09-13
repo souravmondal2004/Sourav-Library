@@ -62,7 +62,6 @@ public class AdminService {
         }
     }
 
-    @Transactional
     public DocumentResponseDto uploadDocument(
             MultipartFile pdfFile,
             MultipartFile coverFile,
@@ -81,6 +80,47 @@ public class AdminService {
             throw new IllegalArgumentException("PDF file is required");
         }
 
+        // 1. Stream PDF file to disk and persistent DB outside the metadata transaction
+        String storedFileName = fileStorageService.storeDocument(pdfFile);
+
+        // 2. Safely calculate pages (fast scanner or memory-cached PDFBox)
+        int calculatedPages = (pageCount != null && pageCount > 0) 
+                ? pageCount 
+                : fileStorageService.countPdfPages(storedFileName);
+
+        // 3. Stream cover image if provided
+        String storedCoverName = null;
+        if (coverFile != null && !coverFile.isEmpty()) {
+            storedCoverName = fileStorageService.storeCover(coverFile);
+        }
+
+        // 4. Persist metadata entity inside transaction
+        return saveUploadedDocumentMetadata(
+                title, author, description, categoryId, calculatedPages,
+                language, publishedYear, isFeatured, isPublished, username,
+                storedFileName, storedCoverName, pdfFile.getOriginalFilename(),
+                pdfFile.getSize(), pdfFile.getContentType()
+        );
+    }
+
+    @Transactional
+    public DocumentResponseDto saveUploadedDocumentMetadata(
+            String title,
+            String author,
+            String description,
+            Long categoryId,
+            int calculatedPages,
+            String language,
+            Integer publishedYear,
+            Boolean isFeatured,
+            Boolean isPublished,
+            String username,
+            String storedFileName,
+            String storedCoverName,
+            String originalFilename,
+            long fileSize,
+            String contentType
+    ) {
         User uploader = (username != null ? userRepository.findByUsername(username).orElse(null) : null);
         if (uploader == null) {
             uploader = userRepository.findByRole("ROLE_ADMIN").stream().findFirst()
@@ -102,29 +142,15 @@ public class AdminService {
             category = categoryRepository.save(new Category("General", "general", "General publications & documents", "BookOpen"));
         }
 
-        // Save PDF file
-        String storedFileName = fileStorageService.storeDocument(pdfFile);
-
-        // Calculate pages if not explicitly provided
-        int calculatedPages = (pageCount != null && pageCount > 0) 
-                ? pageCount 
-                : fileStorageService.countPdfPages(storedFileName);
-
-        // Save cover image if provided
-        String storedCoverName = null;
-        if (coverFile != null && !coverFile.isEmpty()) {
-            storedCoverName = fileStorageService.storeCover(coverFile);
-        }
-
         Document document = new Document();
         document.setTitle(title);
         document.setAuthor(author);
         document.setDescription(description);
         document.setCategory(category);
         document.setFileName(storedFileName);
-        document.setOriginalFilename(pdfFile.getOriginalFilename());
-        document.setFileSize(pdfFile.getSize());
-        document.setFileType(pdfFile.getContentType() != null ? pdfFile.getContentType() : "application/pdf");
+        document.setOriginalFilename(originalFilename);
+        document.setFileSize(fileSize);
+        document.setFileType(contentType != null ? contentType : "application/pdf");
         document.setCoverImagePath(storedCoverName);
         document.setPageCount(calculatedPages);
         document.setLanguage(language != null && !language.isBlank() ? language : "English");
@@ -210,7 +236,9 @@ public class AdminService {
                 totalCats,
                 totalUsers,
                 totalStorage,
-                formatBytes(totalStorage)
+                formatBytes(totalStorage),
+                com.scribd.clone.config.DatabaseConfig.getActiveDatabaseType(),
+                com.scribd.clone.config.DatabaseConfig.isDatabasePersistent()
         );
     }
 

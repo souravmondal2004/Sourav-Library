@@ -21,6 +21,8 @@ services:
         fromDatabase:
           name: sourav-library-db
           property: connectionString
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=40.0"
 
   # Frontend Static Site
   - type: web
