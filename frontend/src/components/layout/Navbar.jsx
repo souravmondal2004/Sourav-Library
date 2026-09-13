@@ -68,8 +68,8 @@ export default function Navbar({
           )}
         </div>
 
-        {/* Navigation & Controls */}
-        <div className="nav-actions">
+        {/* Navigation & Controls (Desktop) */}
+        <div className="nav-actions desktop-nav-only">
           <button
             className={`btn ${currentView === 'home' && !searchQuery && !selectedCategory ? 'btn-primary' : 'btn-outline'}`}
             onClick={onExplore}
@@ -163,7 +163,37 @@ export default function Navbar({
                 Join Free
               </button>
             </div>
+          )}
+        </div>
 
+        {/* Mobile Header Quick Actions */}
+        <div className="mobile-header-actions">
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div
+                className="mobile-user-avatar"
+                title={`${currentUser.username} (${currentUser.role})`}
+                onClick={() => onOpenAuth('account')}
+              >
+                {currentUser.username ? currentUser.username.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <button
+                className="btn btn-outline"
+                onClick={onLogout}
+                title="Log Out"
+                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-primary"
+              style={{ padding: '0.38rem 0.75rem', fontSize: '0.78rem' }}
+              onClick={() => onOpenAuth('login')}
+            >
+              Sign In
+            </button>
           )}
         </div>
       </div>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Navbar from './components/layout/Navbar';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 import HeroBanner from './components/catalog/HeroBanner';
 import CategoryTabs from './components/catalog/CategoryTabs';
 import BookCard from './components/catalog/BookCard';
@@ -31,6 +32,17 @@ export default function App() {
   const [showLibraryModal, setShowLibraryModal] = useState(false);
 
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
+  const mobileSearchInputRef = useRef(null);
+
+  const handleOpenMobileSearch = () => {
+    if (currentView !== 'home') setCurrentView('home');
+    setTimeout(() => {
+      if (mobileSearchInputRef.current) {
+        mobileSearchInputRef.current.focus();
+        mobileSearchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
+  };
 
   // Listen to server status notifications
   useEffect(() => {
@@ -247,6 +259,7 @@ export default function App() {
             <div className="mobile-search-bar">
               <Search size={16} className="search-icon" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
+                ref={mobileSearchInputRef}
                 type="text"
                 className="search-input"
                 placeholder="Search books, authors..."
@@ -520,6 +533,19 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentView={currentView}
+        onExplore={handleExplore}
+        onOpenSearch={handleOpenMobileSearch}
+        onOpenLibrary={() => setShowLibraryModal(true)}
+        currentUser={currentUser}
+        isAdmin={currentUser?.role === 'ROLE_ADMIN'}
+        onToggleAdmin={() => setCurrentView(currentView === 'admin' ? 'home' : 'admin')}
+        onOpenAuth={handleOpenAuth}
+        searchQuery={searchQuery}
+      />
     </div>
   );
 }

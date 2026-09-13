@@ -360,41 +360,7 @@ export default function PdfReaderModal({
               </button>
             </div>
 
-            {/* Zoom Controls */}
-            <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
-              onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
-              title="Zoom Out"
-            >
-              <ZoomOut size={16} />
-            </button>
-            <button
-              onClick={() => setZoomLevel(100)}
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                minWidth: 38,
-                textAlign: 'center',
-                background: 'transparent',
-                border: 'none',
-                color: 'inherit',
-                cursor: 'pointer'
-              }}
-              title="Reset Zoom to 100%"
-            >
-              {zoomLevel}%
-            </button>
-            <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
-              onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
-              title="Zoom In"
-            >
-              <ZoomIn size={16} />
-            </button>
-
-            {/* Bookmark */}
+            {/* Bookmark (Always visible on mobile & desktop) */}
             <button
               className="btn btn-outline"
               style={{ padding: '0.4rem' }}
@@ -408,38 +374,71 @@ export default function PdfReaderModal({
               />
             </button>
 
-            {/* Download */}
-            <a
-              href={api.documents.getDownloadUrl(book.id)}
-              download
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
-              title="Download Document"
-            >
-              <Download size={16} />
-            </a>
+            {/* Desktop Only Tools (Zoom, Download, Full Tab, Fullscreen) */}
+            <div className="reader-desktop-tools" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <button
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+                title="Zoom Out"
+              >
+                <ZoomOut size={16} />
+              </button>
+              <button
+                onClick={() => setZoomLevel(100)}
+                style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  minWidth: 38,
+                  textAlign: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer'
+                }}
+                title="Reset Zoom to 100%"
+              >
+                {zoomLevel}%
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
+                title="Zoom In"
+              >
+                <ZoomIn size={16} />
+              </button>
 
-            {/* Open in Full Tab */}
-            <a
-              href={streamUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
-              title="Open Document in Full Tab"
-            >
-              <ExternalLink size={16} />
-            </a>
+              <a
+                href={api.documents.getDownloadUrl(book.id)}
+                download
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                title="Download Document"
+              >
+                <Download size={16} />
+              </a>
 
-            {/* Fullscreen */}
-            <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
-              onClick={toggleFullscreen}
-              title="Toggle Fullscreen"
-            >
-              <Maximize size={16} />
-            </button>
+              <a
+                href={streamUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                title="Open Document in Full Tab"
+              >
+                <ExternalLink size={16} />
+              </a>
+
+              <button
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                onClick={toggleFullscreen}
+                title="Toggle Fullscreen"
+              >
+                <Maximize size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -557,7 +556,7 @@ export default function PdfReaderModal({
               </div>
 
               {/* Bottom Page Navigation Controls */}
-              <div style={{
+              <div className="reader-bottom-nav-controls" style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',

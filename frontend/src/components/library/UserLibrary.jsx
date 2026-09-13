@@ -37,23 +37,23 @@ export default function UserLibrary({ onClose, onReadBook, onToggleBookmark }) {
         style={{ maxWidth: 840, maxHeight: '85vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div className="user-library-header">
+          <div className="user-library-tabs">
             <button
               className={`btn ${activeTab === 'bookmarks' ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => setActiveTab('bookmarks')}
             >
-              <Bookmark size={16} /> Saved Books ({bookmarks.length})
+              <Bookmark size={16} /> Saved ({bookmarks.length})
             </button>
             <button
               className={`btn ${activeTab === 'history' ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => setActiveTab('history')}
             >
-              <History size={16} /> Reading History ({history.length})
+              <History size={16} /> History ({history.length})
             </button>
           </div>
 
-          <button onClick={onClose} className="btn btn-outline" style={{ padding: '0.4rem' }}>
+          <button onClick={onClose} className="btn btn-outline user-library-close-btn" style={{ padding: '0.4rem' }}>
             <X size={18} />
           </button>
         </div>
