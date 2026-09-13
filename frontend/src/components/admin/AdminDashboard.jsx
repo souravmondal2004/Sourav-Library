@@ -200,7 +200,11 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
       loadStats();
       loadAdminDocs();
     } catch (err) {
-      setMessage({ type: 'error', text: err.message || 'Failed to upload document' });
+      let errorMsg = err.message || 'Failed to upload document';
+      if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('Load failed') || errorMsg.includes('not running')) {
+        errorMsg = 'Backend server is offline. Please ensure your backend is started by running "start-all.bat", then click Upload again.';
+      }
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setUploading(false);
     }
