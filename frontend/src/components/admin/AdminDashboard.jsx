@@ -427,18 +427,18 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
               <div className="stat-val" style={{ fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: 2 }}>
                 <span style={{
                   width: 8, height: 8, borderRadius: '50%',
-                  background: stats?.isPersistent ? '#10b981' : '#f59e0b',
+                  background: (stats?.persistent ?? stats?.isPersistent) ? '#10b981' : '#f59e0b',
                   display: 'inline-block'
                 }}></span>
-                {stats?.databaseType || (stats?.isPersistent ? 'PostgreSQL (Cloud)' : 'Local H2')}
+                {stats?.databaseType || ((stats?.persistent ?? stats?.isPersistent) ? 'PostgreSQL (Cloud)' : 'Local H2')}
               </div>
-              <div className="stat-lbl">{stats?.isPersistent ? 'Permanent Cloud DB' : 'Ephemeral Storage'}</div>
+              <div className="stat-lbl">{(stats?.persistent ?? stats?.isPersistent) ? 'Permanent Cloud DB' : 'Ephemeral Storage'}</div>
             </div>
           </div>
         </div>
       )}
 
-      {stats && !stats.isPersistent && (
+      {stats && !(stats?.persistent ?? stats?.isPersistent) && (
         <div style={{
           padding: '0.9rem 1.25rem',
           borderRadius: 8,

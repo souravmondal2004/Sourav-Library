@@ -51,5 +51,7 @@ public class AdminStatsDto {
     public void setDatabaseType(String databaseType) { this.databaseType = databaseType; }
 
     public boolean isPersistent() { return isPersistent; }
+    public boolean getIsPersistent() { return isPersistent; }
+    public boolean getPersistent() { return isPersistent; }
     public void setPersistent(boolean persistent) { isPersistent = persistent; }
 }
