@@ -73,17 +73,25 @@ public class DocumentController {
     @GetMapping("/{id}/stream")
     public ResponseEntity<Resource> streamDocument(@PathVariable Long id) throws IOException {
         Document doc = documentService.getDocumentEntity(id);
-        Resource resource = fileStorageService.loadDocumentAsResource(doc.getFileName());
+        Resource resource = fileStorageService.loadDocumentAsResource(doc.getFileName(), doc);
 
         if (resource == null || !resource.exists()) {
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok()
+        var responseBuilder = ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getOriginalFilename() + "\"")
-                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .body(resource);
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes");
+
+        try {
+            long length = resource.contentLength();
+            if (length > 0) {
+                responseBuilder.contentLength(length);
+            }
+        } catch (IOException ignored) {}
+
+        return responseBuilder.body(resource);
     }
 
     /**
@@ -93,16 +101,24 @@ public class DocumentController {
     public ResponseEntity<Resource> downloadDocument(@PathVariable Long id) {
         Document doc = documentService.getDocumentEntity(id);
         documentService.recordDownload(id);
-        Resource resource = fileStorageService.loadDocumentAsResource(doc.getFileName());
+        Resource resource = fileStorageService.loadDocumentAsResource(doc.getFileName(), doc);
 
         if (resource == null || !resource.exists()) {
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok()
+        var responseBuilder = ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getOriginalFilename() + "\"")
-                .body(resource);
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + doc.getOriginalFilename() + "\"");
+
+        try {
+            long length = resource.contentLength();
+            if (length > 0) {
+                responseBuilder.contentLength(length);
+            }
+        } catch (IOException ignored) {}
+
+        return responseBuilder.body(resource);
     }
 
     /**

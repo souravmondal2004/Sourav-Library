@@ -116,6 +116,30 @@ public class AdminDocumentController {
     }
 
     /**
+     * Replace/Re-upload the PDF file for an existing document without losing metadata or bookmarks.
+     */
+    @PostMapping(value = "/documents/{id}/replace-file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DocumentResponseDto> replaceDocumentFile(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile pdfFile
+    ) throws IOException {
+        return ResponseEntity.ok(adminService.replaceDocumentFile(id, pdfFile));
+    }
+
+    /**
+     * Direct sync of missing binary file by storedFileName.
+     */
+    @PostMapping(value = "/documents/sync-file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> syncFile(
+            @RequestParam("fileName") String fileName,
+            @RequestParam("file") MultipartFile file
+    ) throws IOException {
+        boolean ok = adminService.syncDocumentFileDirectly(fileName, file);
+        return ok ? ResponseEntity.ok(Map.of("message", "File synchronized successfully", "fileName", fileName))
+                  : ResponseEntity.badRequest().body(Map.of("error", "Failed to sync file"));
+    }
+
+    /**
      * Admin Channel Overview & Storage Analytics.
      */
     @GetMapping("/stats")

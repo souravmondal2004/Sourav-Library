@@ -219,6 +219,38 @@ public class AdminService {
         documentRepository.delete(document);
     }
 
+    @Transactional
+    public DocumentResponseDto replaceDocumentFile(Long documentId, MultipartFile pdfFile) throws IOException {
+        Document doc = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document not found with id: " + documentId));
+
+        if (pdfFile == null || pdfFile.isEmpty()) {
+            throw new IllegalArgumentException("PDF file is required");
+        }
+
+        String storedFileName = fileStorageService.storeDocument(pdfFile);
+        int pages = fileStorageService.countPdfPages(storedFileName);
+
+        if (doc.getFileName() != null && !doc.getFileName().equals(storedFileName)) {
+            fileStorageService.deleteDocument(doc.getFileName());
+        }
+
+        doc.setFileName(storedFileName);
+        doc.setOriginalFilename(pdfFile.getOriginalFilename());
+        doc.setFileSize(pdfFile.getSize());
+        doc.setFileType(pdfFile.getContentType() != null ? pdfFile.getContentType() : "application/pdf");
+        doc.setPageCount(pages > 0 ? pages : (doc.getPageCount() != null ? doc.getPageCount() : 1));
+
+        Document saved = documentRepository.save(doc);
+        return DocumentResponseDto.fromEntity(saved);
+    }
+
+    public boolean syncDocumentFileDirectly(String targetFileName, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty() || targetFileName == null || targetFileName.isBlank()) return false;
+        fileStorageService.storeDirectly(targetFileName, file.getBytes(), file.getContentType());
+        return true;
+    }
+
     public AdminStatsDto getAdminStats() {
         long totalDocs = documentRepository.count();
         long publishedDocs = documentRepository.countByIsPublishedTrue();

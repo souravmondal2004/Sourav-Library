@@ -58,6 +58,7 @@ export default function PdfReaderModal({
   const [pdfDoc, setPdfDoc] = useState(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -65,6 +66,20 @@ export default function PdfReaderModal({
 
   const isTextMode = book.pages && book.pages.length > 0;
   const streamUrl = api.documents.getStreamUrl(book.id);
+
+  const handleDownload = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const downloadUrl = api.documents.getDownloadUrl(book.id);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', book.originalFilename || `${book.title}.pdf`);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (document.body.contains(link)) document.body.removeChild(link);
+    }, 200);
+  };
 
   // Load PDF document using PDF.js when opening an uploaded file
   useEffect(() => {
@@ -122,7 +137,7 @@ export default function PdfReaderModal({
     return () => {
       isMounted = false;
     };
-  }, [book.id, isTextMode, streamUrl, book.pages]);
+  }, [book.id, isTextMode, streamUrl, book.pages, retryCount]);
 
   // Render current PDF page onto HTML5 Canvas
   useEffect(() => {
@@ -409,15 +424,14 @@ export default function PdfReaderModal({
                 <ZoomIn size={16} />
               </button>
 
-              <a
-                href={api.documents.getDownloadUrl(book.id)}
-                download
+              <button
+                onClick={handleDownload}
                 className="btn btn-outline"
                 style={{ padding: '0.4rem' }}
                 title="Download Document"
               >
                 <Download size={16} />
-              </a>
+              </button>
 
               <a
                 href={streamUrl}
@@ -531,21 +545,26 @@ export default function PdfReaderModal({
               <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem' }}>Unable to preview document inline</h4>
               <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.75 }}>{pdfError}</p>
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setRetryCount((c) => c + 1)}
+                  className="btn btn-primary"
+                >
+                  <RotateCcw size={16} /> Retry
+                </button>
                 <a
                   href={streamUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn btn-primary"
+                  className="btn btn-outline"
                 >
                   <ExternalLink size={16} /> Open in New Tab
                 </a>
-                <a
-                  href={api.documents.getDownloadUrl(book.id)}
-                  download
+                <button
+                  onClick={handleDownload}
                   className="btn btn-outline"
                 >
                   <Download size={16} /> Download PDF
-                </a>
+                </button>
               </div>
             </div>
           ) : (

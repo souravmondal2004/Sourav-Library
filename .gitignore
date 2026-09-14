@@ -36,3 +36,4 @@ data/
 *.trace.db
 uploads/
 **/uploads/
+scratch/

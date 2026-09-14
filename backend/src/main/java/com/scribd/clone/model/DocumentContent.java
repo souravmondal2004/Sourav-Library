@@ -14,7 +14,7 @@ public class DocumentContent {
     @Column(name = "file_name", unique = true, nullable = false, length = 255)
     private String fileName;
 
-    @Lob
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.VARBINARY)
     @Basic(fetch = FetchType.LAZY)
     @Column(name = "file_data", nullable = false)
     private byte[] fileData;
