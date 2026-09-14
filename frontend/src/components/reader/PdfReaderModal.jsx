@@ -18,6 +18,9 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api';
 
+// High-performance client-side cache for loaded PDF document buffers across modal sessions
+const globalPdfBufferCache = new Map();
+
 // Helper to reliably load PDF.js library from window or bundled distribution
 const getPdfJsLib = async () => {
   if (typeof window !== 'undefined' && window.pdfjsLib) {
@@ -59,6 +62,7 @@ export default function PdfReaderModal({
   // PDF.js Canvas Rendering States
   const [pdfDoc, setPdfDoc] = useState(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ loaded: 0, total: 0, percent: 0 });
   const [pdfError, setPdfError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -105,6 +109,7 @@ export default function PdfReaderModal({
     setIsLoadingPdf(true);
     setPdfError(null);
     setPdfDoc(null);
+    setDownloadProgress({ loaded: 0, total: 0, percent: 0 });
 
     async function loadDocument() {
       try {
@@ -117,21 +122,69 @@ export default function PdfReaderModal({
           pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
-        // Fetch PDF binary directly over CORS
-        const response = await fetch(streamUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to load document stream (HTTP ${response.status}).`);
+        // Fast Path 1: Instant in-memory client cache (0ms reopen)
+        if (globalPdfBufferCache.has(book.id)) {
+          const cachedBuffer = globalPdfBufferCache.get(book.id);
+          const task = pdfjs.getDocument({
+            data: cachedBuffer,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true
+          });
+          const doc = await task.promise;
+          if (!isMounted) return;
+          setPdfDoc(doc);
+          setTotalPages(doc.numPages);
+          setIsLoadingPdf(false);
+          return;
         }
-        const arrayBuffer = await response.arrayBuffer();
 
-        const loadingTask = pdfjs.getDocument({
-          data: arrayBuffer,
-          cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-          cMapPacked: true
-        });
+        // Fast Path 2: Progressive HTTP Range Streaming direct from streamUrl (Page 1 in <1s)
+        let doc = null;
+        try {
+          const loadingTask = pdfjs.getDocument({
+            url: streamUrl,
+            withCredentials: false,
+            rangeChunkSize: 65536, // 64KB initial chunk for rapid preview
+            disableAutoFetch: false,
+            disableStream: false,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true
+          });
 
-        const doc = await loadingTask.promise;
+          loadingTask.onProgress = ({ loaded, total }) => {
+            if (isMounted && total > 0) {
+              const percent = Math.min(100, Math.round((loaded / total) * 100));
+              setDownloadProgress({ loaded, total, percent });
+            }
+          };
+
+          doc = await loadingTask.promise;
+        } catch (streamingErr) {
+          console.warn('Progressive streaming fallback to direct fetch:', streamingErr);
+          // Resilient Fallback: Stream directly via fetch
+          const response = await fetch(streamUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to load document stream (HTTP ${response.status}).`);
+          }
+          const arrayBuffer = await response.arrayBuffer();
+          globalPdfBufferCache.set(book.id, arrayBuffer);
+
+          const fallbackTask = pdfjs.getDocument({
+            data: arrayBuffer,
+            cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+            cMapPacked: true
+          });
+          doc = await fallbackTask.promise;
+        }
+
         if (!isMounted) return;
+
+        // Populate in-memory cache in background if not already cached
+        if (!globalPdfBufferCache.has(book.id) && doc && doc.getData) {
+          doc.getData().then((data) => {
+            globalPdfBufferCache.set(book.id, data);
+          }).catch(() => {});
+        }
 
         setPdfDoc(doc);
         setTotalPages(doc.numPages);
@@ -206,6 +259,14 @@ export default function PdfReaderModal({
         if (containerRef.current) {
           containerRef.current.scrollTop = 0;
           containerRef.current.scrollLeft = 0;
+        }
+
+        // Smart pre-fetch next and previous pages in background for instant page flipping
+        if (pdfDoc && currentPage < pdfDoc.numPages) {
+          pdfDoc.getPage(currentPage + 1).catch(() => {});
+        }
+        if (pdfDoc && currentPage > 1) {
+          pdfDoc.getPage(currentPage - 1).catch(() => {});
         }
       } catch (err) {
         if (err?.name !== 'RenderingCancelledException') {
@@ -390,6 +451,28 @@ export default function PdfReaderModal({
               </button>
             </div>
 
+            {/* Rotate Document button (Universal: Visible on both mobile and desktop) */}
+            <button
+              className="btn btn-outline"
+              style={{
+                padding: '0.4rem 0.55rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                borderColor: rotation > 0 ? 'var(--primary, #00d287)' : 'rgba(128, 128, 128, 0.3)',
+                color: rotation > 0 ? 'var(--primary, #00d287)' : 'inherit',
+                fontWeight: 600,
+                fontSize: '0.78rem'
+              }}
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              title={`Rotate 90° Clockwise (Current: ${rotation}°)`}
+            >
+              <RotateCw size={16} />
+              <span className="rotate-btn-text" style={{ fontSize: '0.75rem' }}>
+                {rotation > 0 ? `${rotation}°` : 'Rotate'}
+              </span>
+            </button>
+
             {/* Bookmark (Always visible on mobile & desktop) */}
             <button
               className="btn btn-outline"
@@ -437,15 +520,6 @@ export default function PdfReaderModal({
                 title="Zoom In"
               >
                 <ZoomIn size={16} />
-              </button>
-
-              <button
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
-                onClick={() => setRotation((r) => (r + 90) % 360)}
-                title={`Rotate Document (Current: ${rotation}°)`}
-              >
-                <RotateCw size={16} />
               </button>
 
               <button
@@ -576,13 +650,35 @@ export default function PdfReaderModal({
               })()}
             </div>
           ) : isLoadingPdf ? (
-            /* Sleek PDF Loading State */
-            <div className="pdf-loading-state">
-              <div className="pdf-loading-spinner" />
-              <h4 style={{ margin: 0, fontWeight: 700, fontSize: '1.1rem' }}>Rendering Document...</h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.75 }}>
-                Preparing high-definition pages for reading
+            /* Sleek PDF Loading State with Real-Time Progress Bar */
+            <div className="pdf-loading-state" style={{ textAlign: 'center', padding: '3rem 1.5rem', maxWidth: '420px', margin: '0 auto' }}>
+              <div className="pdf-loading-spinner" style={{ margin: '0 auto 1.25rem' }} />
+              <h4 style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1.15rem' }}>
+                {downloadProgress.percent > 0 ? `Loading Document... ${downloadProgress.percent}%` : 'Fast-Streaming Document...'}
+              </h4>
+              <p style={{ margin: '0 0 1rem', fontSize: '0.85rem', opacity: 0.75 }}>
+                {downloadProgress.total > 0
+                  ? `${(downloadProgress.loaded / (1024 * 1024)).toFixed(1)} MB of ${(downloadProgress.total / (1024 * 1024)).toFixed(1)} MB streamed`
+                  : 'Preparing high-definition pages for reading'}
               </p>
+              {downloadProgress.percent > 0 && (
+                <div style={{
+                  width: '100%',
+                  height: '6px',
+                  background: 'rgba(128, 128, 128, 0.2)',
+                  borderRadius: '999px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    width: `${downloadProgress.percent}%`,
+                    height: '100%',
+                    background: 'var(--primary, #00d287)',
+                    transition: 'width 0.15s ease-out',
+                    borderRadius: '999px',
+                    boxShadow: '0 0 8px rgba(0, 210, 135, 0.6)'
+                  }} />
+                </div>
+              )}
             </div>
           ) : pdfError ? (
             /* Graceful Fallback if PDF fails to render */
@@ -634,7 +730,9 @@ export default function PdfReaderModal({
                 maxWidth: 680,
                 marginTop: '2rem',
                 paddingTop: '1.25rem',
-                borderTop: '1px solid rgba(128, 128, 128, 0.2)'
+                borderTop: '1px solid rgba(128, 128, 128, 0.2)',
+                gap: '0.5rem',
+                flexWrap: 'wrap'
               }}>
                 <button
                   className="btn btn-outline"
@@ -645,9 +743,30 @@ export default function PdfReaderModal({
                   <ChevronLeft size={16} /> Previous Page
                 </button>
 
-                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                  Page {currentPage} of {totalPages} ({Math.round((currentPage / totalPages) * 100)}%)
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                    Page {currentPage} of {totalPages} ({Math.round((currentPage / totalPages) * 100)}%)
+                  </span>
+
+                  <button
+                    className="btn btn-outline"
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.75rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      borderColor: rotation > 0 ? 'var(--primary, #00d287)' : 'rgba(128, 128, 128, 0.3)',
+                      color: rotation > 0 ? 'var(--primary, #00d287)' : 'inherit',
+                      fontWeight: 600
+                    }}
+                    onClick={() => setRotation((r) => (r + 90) % 360)}
+                    title={`Rotate Page 90° Clockwise (Current: ${rotation}°)`}
+                  >
+                    <RotateCw size={13} />
+                    <span>{rotation > 0 ? `${rotation}°` : 'Rotate'}</span>
+                  </button>
+                </div>
 
                 <button
                   className="btn btn-primary"

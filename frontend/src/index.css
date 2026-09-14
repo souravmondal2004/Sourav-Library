@@ -1319,6 +1319,10 @@ button {
     display: none !important;
   }
 
+  .rotate-btn-text {
+    display: none;
+  }
+
   .reader-toolbar-center {
     gap: 0.25rem;
   }

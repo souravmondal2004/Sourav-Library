@@ -79,17 +79,22 @@ public class DocumentController {
             return ResponseEntity.notFound().build();
         }
 
+        long length = 0;
+        try {
+            length = resource.contentLength();
+        } catch (IOException ignored) {}
+
         var responseBuilder = ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + doc.getOriginalFilename() + "\"")
-                .header(HttpHeaders.ACCEPT_RANGES, "bytes");
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400, stale-while-revalidate=604800")
+                .header("Access-Control-Expose-Headers", "Accept-Ranges, Content-Range, Content-Length, Content-Disposition, ETag");
 
-        try {
-            long length = resource.contentLength();
-            if (length > 0) {
-                responseBuilder.contentLength(length);
-            }
-        } catch (IOException ignored) {}
+        if (length > 0) {
+            responseBuilder.contentLength(length);
+            responseBuilder.eTag("\"doc-" + id + "-" + length + "\"");
+        }
 
         return responseBuilder.body(resource);
     }
