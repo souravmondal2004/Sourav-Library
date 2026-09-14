@@ -3,6 +3,9 @@ import { BookOpen, Bookmark, Eye, Download, FileText } from 'lucide-react';
 import { api } from '../../services/api';
 
 export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked }) {
+  const [hasCoverImg, setHasCoverImg] = React.useState(false);
+  const [coverFailed, setCoverFailed] = React.useState(false);
+
   // Deep jewel tone gradient covers tailored to the obsidian aesthetic
   const gradients = [
     'linear-gradient(145deg, #09261e 0%, #064e3b 100%)', // Emerald Deep
@@ -17,21 +20,34 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
   return (
     <div className="book-card">
       <div className="book-card-cover-container" style={{ background: bgGradient }}>
-        {book.coverImagePath ? (
+        {!coverFailed && (
           <img
             src={api.documents.getCoverUrl(book.id)}
             alt={book.title}
             className="book-card-cover-img"
-            onError={(e) => { e.target.style.display = 'none'; }}
+            loading="lazy"
+            onLoad={() => setHasCoverImg(true)}
+            onError={() => setCoverFailed(true)}
+            style={{
+              opacity: hasCoverImg ? 1 : 0,
+              transition: 'opacity 0.4s ease',
+              zIndex: 1
+            }}
           />
-        ) : null}
+        )}
 
         {book.isFeatured && (
           <span className="book-badge-featured">FEATURED</span>
         )}
 
-        {/* Dynamic visual book spine & title */}
-        <div style={{ position: 'relative', zIndex: 2 }}>
+        {/* Dynamic visual book spine & title (visible while cover loads or if cover unavailable) */}
+        <div style={{
+          position: 'relative',
+          zIndex: 2,
+          opacity: hasCoverImg ? 0 : 1,
+          transition: 'opacity 0.3s ease',
+          pointerEvents: hasCoverImg ? 'none' : 'auto'
+        }}>
           <FileText size={22} color="var(--color-emerald-light)" style={{ marginBottom: '0.5rem', opacity: 0.9 }} />
           <h4 style={{
             color: '#ffffff',

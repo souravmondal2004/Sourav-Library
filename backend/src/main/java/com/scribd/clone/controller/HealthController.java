@@ -168,15 +168,15 @@ public class HealthController {
                         <div class="metrics-grid">
                             <div class="metric-card">
                                 <div class="metric-label">Cloud Database</div>
-                                <div class="metric-value" style="color: #38bdf8;">%s</div>
+                                <div class="metric-value" style="color: #38bdf8;">{DB_TYPE}</div>
                             </div>
                             <div class="metric-card">
                                 <div class="metric-label">Database Persistence</div>
-                                <div class="metric-value" style="color: %s;">%s</div>
+                                <div class="metric-value" style="color: {STATUS_COLOR};">{STATUS_TEXT}</div>
                             </div>
                             <div class="metric-card">
                                 <div class="metric-label">Active Publications</div>
-                                <div class="metric-value">%d Books</div>
+                                <div class="metric-value">{DOC_COUNT} Books</div>
                             </div>
                             <div class="metric-card">
                                 <div class="metric-label">Streaming Protocol</div>
@@ -195,7 +195,11 @@ public class HealthController {
                     </div>
                 </body>
                 </html>
-                """.formatted(dbType, statusColor, statusText, docCount);
+                """
+                .replace("{DB_TYPE}", dbType != null ? dbType : "PostgreSQL (Cloud Persistent)")
+                .replace("{STATUS_COLOR}", statusColor)
+                .replace("{STATUS_TEXT}", statusText)
+                .replace("{DOC_COUNT}", String.valueOf(docCount));
             return ResponseEntity.ok()
                     .contentType(MediaType.TEXT_HTML)
                     .body(html);

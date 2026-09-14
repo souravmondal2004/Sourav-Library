@@ -138,13 +138,18 @@ export default function PdfReaderModal({
           return;
         }
 
-        // Fast Path 2: Progressive HTTP Range Streaming direct from streamUrl (Page 1 in <1s)
+        // Fast Path 2: Progressive HTTP Range Streaming direct from activeStreamUrl (Page 1 in <1s)
+        const directCloudUrl = `https://sourav-library.onrender.com/api/documents/${book.id}/stream`;
+        // Bypass Vercel 4.5MB proxy limit by connecting directly to Render cloud when hosted on Vercel
+        const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
+        const activeStreamUrl = (retryCount > 0 || isVercelHost) ? directCloudUrl : streamUrl;
+
         let doc = null;
         try {
           const loadingTask = pdfjs.getDocument({
-            url: streamUrl,
+            url: activeStreamUrl,
             withCredentials: false,
-            rangeChunkSize: 65536, // 64KB initial chunk for rapid preview
+            rangeChunkSize: 131072, // 128KB initial chunk for rapid preview
             disableAutoFetch: false,
             disableStream: false,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
@@ -161,10 +166,10 @@ export default function PdfReaderModal({
           doc = await loadingTask.promise;
         } catch (streamingErr) {
           console.warn('Progressive streaming fallback to direct fetch:', streamingErr);
-          // Resilient Fallback: Stream directly via fetch
-          const response = await fetch(streamUrl);
+          // Resilient Fallback: Stream directly via fetch from direct cloud URL
+          const response = await fetch(directCloudUrl);
           if (!response.ok) {
-            throw new Error(`Failed to load document stream (HTTP ${response.status}).`);
+            throw new Error(`Cloud server returned HTTP ${response.status}. Please wait a few seconds and click Retry.`);
           }
           const arrayBuffer = await response.arrayBuffer();
           globalPdfBufferCache.set(book.id, arrayBuffer);
@@ -195,16 +200,16 @@ export default function PdfReaderModal({
 
         const errMsg = err?.message || '';
         // If Render free-tier server is waking up from idle or deploying, auto-retry smoothly
-        if ((errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) && retryCount < 2) {
+        if ((errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) && retryCount < 3) {
           setTimeout(() => {
             if (isMounted) setRetryCount((c) => c + 1);
-          }, 3000);
+          }, 2500);
           return;
         }
 
         let userMsg = errMsg || 'Unable to render document inline.';
-        if (errMsg.includes('502') || errMsg.includes('503')) {
-          userMsg = 'Cloud server is waking up or updating. Please wait a few seconds and click Retry.';
+        if (errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
+          userMsg = 'Cloud server is waking up or preparing the document. Please click Retry below to open.';
         }
         setPdfError(userMsg);
         setIsLoadingPdf(false);
