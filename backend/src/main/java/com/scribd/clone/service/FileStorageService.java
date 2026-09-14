@@ -435,13 +435,14 @@ public class FileStorageService {
             Resource pdfRes = loadDocumentAsResource(doc.getFileName(), doc);
             if (pdfRes != null && pdfRes.exists()) {
                 File pdfFile = pdfRes.getFile();
-                // Avoid rendering huge files on the fly to prevent OOM
-                if (pdfFile.length() > 8 * 1024 * 1024) {
+                // Safeguard against absurdly large files (>100MB) to prevent container OOM
+                if (pdfFile.length() > 100L * 1024 * 1024) {
+                    log.warn("Skipping on-the-fly cover render for doc #{} because file size exceeds 100MB", doc.getId());
                     return null;
                 }
 
-                if (!COVER_SEMAPHORE.tryAcquire(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                    // Another cover is currently rendering, return null gracefully so frontend shows card
+                if (!COVER_SEMAPHORE.tryAcquire(4000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    log.info("Cover generation queue busy for doc #{}, returning fallback", doc.getId());
                     return null;
                 }
 

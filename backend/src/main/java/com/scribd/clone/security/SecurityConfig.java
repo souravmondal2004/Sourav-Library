@@ -46,7 +46,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Allow CORS Preflight OPTIONS
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Public endpoints
+                        // Public endpoints & Cloud healthchecks
+                        .requestMatchers("/", "/api/health", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/documents/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
