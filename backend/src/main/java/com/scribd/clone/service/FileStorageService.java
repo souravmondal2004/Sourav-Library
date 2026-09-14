@@ -200,9 +200,7 @@ public class FileStorageService {
         try {
             Files.createDirectories(this.documentsPath);
             Path targetLocation = this.documentsPath.resolve(fileName);
-            if (!Files.exists(targetLocation)) {
-                Files.write(targetLocation, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            }
+            Files.write(targetLocation, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             persistFileToDatabase(fileName, targetLocation, contentType);
         } catch (Exception e) {
             log.warn("Could not store direct content for {}: {}", fileName, e.getMessage());

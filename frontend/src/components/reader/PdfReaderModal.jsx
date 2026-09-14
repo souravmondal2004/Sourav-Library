@@ -59,10 +59,21 @@ export default function PdfReaderModal({
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const currentRenderTaskRef = useRef(null);
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const maxScroll = scrollHeight - clientHeight;
+    if (maxScroll > 0) {
+      setScrollProgress(Math.min(100, Math.round((scrollTop / maxScroll) * 100)));
+    } else {
+      setScrollProgress(0);
+    }
+  };
 
   const isTextMode = book.pages && book.pages.length > 0;
   const streamUrl = api.documents.getStreamUrl(book.id);
@@ -188,9 +199,10 @@ export default function PdfReaderModal({
         await renderTask.promise;
         currentRenderTaskRef.current = null;
 
-        // Auto-scroll to top of page on page turn
+        // Auto-scroll to top and left on page turn
         if (containerRef.current) {
           containerRef.current.scrollTop = 0;
+          containerRef.current.scrollLeft = 0;
         }
       } catch (err) {
         if (err?.name !== 'RenderingCancelledException') {
@@ -221,12 +233,12 @@ export default function PdfReaderModal({
     }
   }, [currentPage, book, currentUser, totalPages]);
 
-  // Keyboard navigation
+  // Keyboard navigation (ArrowLeft/Right for page turns; PageUp/Down for natural document scrolling)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+      if (e.key === 'ArrowRight') {
         setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      } else if (e.key === 'ArrowLeft') {
         setCurrentPage((prev) => Math.max(1, prev - 1));
       } else if (e.key === 'Escape' && !isFullscreen) {
         onClose();
@@ -457,20 +469,42 @@ export default function PdfReaderModal({
         </div>
 
         {/* Reader Content Body */}
-        <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="reader-content-body">
+          {/* Subtle Reading Scroll Progress Bar */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '3px',
+              background: 'transparent',
+              zIndex: 15,
+              pointerEvents: 'none'
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${scrollProgress}%`,
+                background: 'var(--primary, #00d287)',
+                transition: 'width 0.12s ease-out',
+                boxShadow: '0 0 8px rgba(0, 210, 135, 0.6)'
+              }}
+            />
+          </div>
+
           {isTextMode ? (
             /* Structured Text/Chapter Reading View */
-            <div style={{
-              flex: 1,
-              maxWidth: 860,
-              width: '100%',
-              margin: '0 auto',
-              overflowY: 'auto',
-              padding: `${2 * (zoomLevel / 100)}rem ${2.5 * (zoomLevel / 100)}rem`,
-              fontSize: `${1.05 * (zoomLevel / 100)}rem`,
-              lineHeight: 1.8,
-              transition: 'all 0.2s ease'
-            }}>
+            <div
+              className="reader-text-container"
+              onScroll={handleScroll}
+              style={{
+                padding: `${2 * (zoomLevel / 100)}rem ${2.5 * (zoomLevel / 100)}rem`,
+                fontSize: `${1.05 * (zoomLevel / 100)}rem`,
+                transition: 'all 0.2s ease'
+              }}
+            >
               {(() => {
                 const pageData = book.pages.find((p) => p.pageNumber === currentPage) || book.pages[0];
                 return (
@@ -569,7 +603,12 @@ export default function PdfReaderModal({
             </div>
           ) : (
             /* Mozilla PDF.js Canvas Reader (Desktop + Mobile Flawless) */
-            <div className="pdf-canvas-container" ref={containerRef}>
+            <div
+              className="pdf-canvas-container"
+              ref={containerRef}
+              tabIndex={0}
+              onScroll={handleScroll}
+            >
               <div className="pdf-page-wrapper">
                 <canvas ref={canvasRef} className="pdf-page-canvas" />
               </div>
