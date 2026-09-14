@@ -48,6 +48,7 @@ import java.util.regex.Pattern;
 public class FileStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(FileStorageService.class);
+    private static final java.util.concurrent.Semaphore COVER_SEMAPHORE = new java.util.concurrent.Semaphore(1);
 
     @Value("${scribd.storage.documents-dir:uploads/documents}")
     private String documentsDir;
@@ -430,20 +431,33 @@ public class FileStorageService {
                 return new UrlResource(thumbPath.toUri());
             }
 
-            // Render page 1 of the PDF
+            // Render page 1 of the PDF with strict concurrency limit and memory safeguards
             Resource pdfRes = loadDocumentAsResource(doc.getFileName(), doc);
             if (pdfRes != null && pdfRes.exists()) {
                 File pdfFile = pdfRes.getFile();
+                // Avoid rendering huge files on the fly to prevent OOM
+                if (pdfFile.length() > 8 * 1024 * 1024) {
+                    return null;
+                }
+
+                if (!COVER_SEMAPHORE.tryAcquire(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    // Another cover is currently rendering, return null gracefully so frontend shows card
+                    return null;
+                }
+
                 try (PDDocument pdDoc = Loader.loadPDF(pdfFile, IOUtils.createTempFileOnlyStreamCache())) {
                     if (pdDoc.getNumberOfPages() > 0) {
                         PDFRenderer renderer = new PDFRenderer(pdDoc);
-                        BufferedImage bim = renderer.renderImageWithDPI(0, 130, ImageType.RGB);
+                        // 72 DPI is optimal for 200px card thumbnails and uses 80% less memory than 130 DPI
+                        BufferedImage bim = renderer.renderImageWithDPI(0, 72, ImageType.RGB);
                         Files.createDirectories(this.coversPath);
                         ImageIO.write(bim, "PNG", thumbFile);
                         persistFileToDatabase(thumbName, thumbPath, "image/png");
                         log.info("Auto-rendered authentic book cover picture for doc #{}: {}", doc.getId(), thumbName);
                         return new UrlResource(thumbPath.toUri());
                     }
+                } finally {
+                    COVER_SEMAPHORE.release();
                 }
             }
         } catch (Throwable t) {

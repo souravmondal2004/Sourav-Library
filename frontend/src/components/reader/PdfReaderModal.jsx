@@ -191,10 +191,23 @@ export default function PdfReaderModal({
         setIsLoadingPdf(false);
       } catch (err) {
         console.error('PDF.js loading error:', err);
-        if (isMounted) {
-          setPdfError(err.message || 'Unable to render document inline.');
-          setIsLoadingPdf(false);
+        if (!isMounted) return;
+
+        const errMsg = err?.message || '';
+        // If Render free-tier server is waking up from idle or deploying, auto-retry smoothly
+        if ((errMsg.includes('502') || errMsg.includes('503') || errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) && retryCount < 2) {
+          setTimeout(() => {
+            if (isMounted) setRetryCount((c) => c + 1);
+          }, 3000);
+          return;
         }
+
+        let userMsg = errMsg || 'Unable to render document inline.';
+        if (errMsg.includes('502') || errMsg.includes('503')) {
+          userMsg = 'Cloud server is waking up or updating. Please wait a few seconds and click Retry.';
+        }
+        setPdfError(userMsg);
+        setIsLoadingPdf(false);
       }
     }
 
