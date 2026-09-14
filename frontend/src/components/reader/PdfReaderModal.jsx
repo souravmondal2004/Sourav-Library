@@ -13,6 +13,7 @@ import {
   Download,
   ExternalLink,
   RotateCcw,
+  RotateCw,
   AlertCircle
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -53,6 +54,7 @@ export default function PdfReaderModal({
   const [zoomLevel, setZoomLevel] = useState(100);
   const [theme, setTheme] = useState('light'); // 'light', 'sepia', 'dark'
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270 degrees
 
   // PDF.js Canvas Rendering States
   const [pdfDoc, setPdfDoc] = useState(null);
@@ -176,7 +178,8 @@ export default function PdfReaderModal({
 
         // Responsive base scale (1.2 default, scaled with zoomLevel)
         const baseScale = 1.25 * (zoomLevel / 100);
-        const viewport = page.getViewport({ scale: baseScale });
+        const effectiveRotation = ((page.rotate || 0) + rotation) % 360;
+        const viewport = page.getViewport({ scale: baseScale, rotation: effectiveRotation });
 
         // High DPI sharpness support for Retina and mobile displays
         const dpr = window.devicePixelRatio || 1;
@@ -223,7 +226,7 @@ export default function PdfReaderModal({
         }
       }
     };
-  }, [pdfDoc, currentPage, zoomLevel, isTextMode]);
+  }, [pdfDoc, currentPage, zoomLevel, rotation, isTextMode]);
 
   // Save reading progress periodically
   useEffect(() => {
@@ -434,6 +437,15 @@ export default function PdfReaderModal({
                 title="Zoom In"
               >
                 <ZoomIn size={16} />
+              </button>
+
+              <button
+                className="btn btn-outline"
+                style={{ padding: '0.4rem' }}
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                title={`Rotate Document (Current: ${rotation}°)`}
+              >
+                <RotateCw size={16} />
               </button>
 
               <button

@@ -23,6 +23,10 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.apache.pdfbox.rendering.ImageType;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
@@ -355,12 +359,11 @@ public class FileStorageService {
             } catch (MalformedURLException ignored) {}
         }
 
-        // 3. Resilient Fallback: if file is not on disk and not in DB, generate a high-quality PDF
+        // 3. Resilient Fallback: if file is not on disk and not in DB, generate on-the-fly preview (never overwrite DB)
         if (docEntity != null) {
             try {
                 generateFallbackDocumentPdf(file, docEntity);
                 if (file.exists() && file.length() > 0) {
-                    persistFileToDatabase(fileName, filePath, "application/pdf");
                     return new UrlResource(filePath.toUri());
                 }
             } catch (Exception ex) {
@@ -392,6 +395,59 @@ public class FileStorageService {
             try {
                 return new UrlResource(filePath.toUri());
             } catch (MalformedURLException ignored) {}
+        }
+
+        return null;
+    }
+
+    /**
+     * Loads or generates an authentic cover picture for a document.
+     * If custom cover image is present and valid, serves it.
+     * If missing, automatically renders Page 1 of the user's PDF into a crisp 130-DPI cover image.
+     */
+    public Resource loadCoverForDocument(Document doc) {
+        if (doc == null) return null;
+
+        // 1. Check custom uploaded cover image
+        if (doc.getCoverImagePath() != null && !doc.getCoverImagePath().isBlank()) {
+            Resource customRes = loadCoverAsResource(doc.getCoverImagePath());
+            if (customRes != null && customRes.exists()) {
+                return customRes;
+            }
+        }
+
+        // 2. Auto-generate thumbnail from Page 1 of the real PDF
+        try {
+            String thumbName = "thumb_" + doc.getId() + ".png";
+            Path thumbPath = this.coversPath.resolve(thumbName).normalize();
+            File thumbFile = thumbPath.toFile();
+
+            if (thumbFile.exists() && thumbFile.canRead() && thumbFile.length() > 0) {
+                return new UrlResource(thumbPath.toUri());
+            }
+
+            if (recoverFileFromDatabase(thumbName, thumbPath)) {
+                return new UrlResource(thumbPath.toUri());
+            }
+
+            // Render page 1 of the PDF
+            Resource pdfRes = loadDocumentAsResource(doc.getFileName(), doc);
+            if (pdfRes != null && pdfRes.exists()) {
+                File pdfFile = pdfRes.getFile();
+                try (PDDocument pdDoc = Loader.loadPDF(pdfFile, IOUtils.createTempFileOnlyStreamCache())) {
+                    if (pdDoc.getNumberOfPages() > 0) {
+                        PDFRenderer renderer = new PDFRenderer(pdDoc);
+                        BufferedImage bim = renderer.renderImageWithDPI(0, 130, ImageType.RGB);
+                        Files.createDirectories(this.coversPath);
+                        ImageIO.write(bim, "PNG", thumbFile);
+                        persistFileToDatabase(thumbName, thumbPath, "image/png");
+                        log.info("Auto-rendered authentic book cover picture for doc #{}: {}", doc.getId(), thumbName);
+                        return new UrlResource(thumbPath.toUri());
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            log.warn("Could not generate book cover image for doc #{}: {}", doc.getId(), t.getMessage());
         }
 
         return null;

@@ -127,17 +127,18 @@ public class DocumentController {
     @GetMapping("/{id}/cover")
     public ResponseEntity<Resource> getCoverImage(@PathVariable Long id) {
         Document doc = documentService.getDocumentEntity(id);
-        if (doc.getCoverImagePath() != null) {
-            Resource resource = fileStorageService.loadCoverAsResource(doc.getCoverImagePath());
-            if (resource != null && resource.exists()) {
-                String contentType = "image/jpeg";
-                if (doc.getCoverImagePath().endsWith(".png")) contentType = "image/png";
+        Resource resource = fileStorageService.loadCoverForDocument(doc);
+        if (resource != null && resource.exists()) {
+            String contentType = "image/png";
+            if (doc.getCoverImagePath() != null) {
+                if (doc.getCoverImagePath().endsWith(".jpg") || doc.getCoverImagePath().endsWith(".jpeg")) contentType = "image/jpeg";
                 else if (doc.getCoverImagePath().endsWith(".webp")) contentType = "image/webp";
-
-                return ResponseEntity.ok()
-                        .contentType(MediaType.parseMediaType(contentType))
-                        .body(resource);
             }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=86400")
+                    .body(resource);
         }
         return ResponseEntity.notFound().build();
     }
