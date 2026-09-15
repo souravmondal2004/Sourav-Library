@@ -346,13 +346,15 @@ public class FileStorageService {
         File file = filePath.toFile();
 
         // 1. If present on disk and readable, return directly
-        if (file.exists() && file.canRead() && file.length() > 0) {
+        // Ensure that a tiny fallback preview on disk does not mask a real multi-megabyte document
+        boolean isPlaceholder = (docEntity != null && docEntity.getFileSize() != null && docEntity.getFileSize() > 50000 && file.exists() && file.length() < 10000);
+        if (file.exists() && file.canRead() && file.length() > 0 && !isPlaceholder) {
             try {
                 return new UrlResource(filePath.toUri());
             } catch (MalformedURLException ignored) {}
         }
 
-        // 2. Not on disk: recover from database directly into disk file via stream
+        // 2. Not on disk or was placeholder: recover from database directly into disk file via stream
         boolean recovered = recoverFileFromDatabase(fileName, filePath);
         if (recovered && file.exists() && file.canRead() && file.length() > 0) {
             try {

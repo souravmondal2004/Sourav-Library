@@ -8,20 +8,21 @@ import PdfReaderModal from './components/reader/PdfReaderModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
-import { api, getStoredUser, getAuthToken, getCachedDocuments } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw } from 'lucide-react';
+import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategories, getCachedFeatured } from './services/api';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin'
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState(getCachedCategories());
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [books, setBooks] = useState(getCachedDocuments());
-  const [featuredBooks, setFeaturedBooks] = useState(getCachedDocuments().filter(b => b.isFeatured));
+  const [featuredBooks, setFeaturedBooks] = useState(getCachedFeatured());
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
 
@@ -33,6 +34,8 @@ export default function App() {
 
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const mobileSearchInputRef = useRef(null);
+
+  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   const handleOpenMobileSearch = () => {
     if (currentView !== 'home') setCurrentView('home');
@@ -51,7 +54,11 @@ export default function App() {
         const isOnline = e.detail.online;
         setServerOnline(isOnline);
         if (!isOnline) {
-          setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Your uploaded documents & database are safely preserved! Run start-all.bat to reconnect.');
+          if (isLocalhost) {
+            setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Run start-all.bat to reconnect.');
+          } else {
+            setError('Cloud Server Waking Up (~20s): Render sleeps inactive containers. Your library is loaded from cache and will sync automatically.');
+          }
         } else {
           setError(null);
         }
@@ -63,50 +70,60 @@ export default function App() {
     return () => window.removeEventListener('scribd-server-status', handleStatus);
   }, []);
 
-  // Load initial data (categories, catalog, bookmarks)
+  // Load initial data (categories, catalog, bookmarks) with instant SWR & parallel fetching
   const fetchData = async () => {
-    setLoading(true);
+    const hasExistingData = books && books.length > 0;
+    if (!hasExistingData) {
+      setLoading(true);
+    } else {
+      setIsBackgroundSyncing(true);
+    }
+
     try {
-      // 1. Fetch categories
-      const cats = await api.categories.getAll();
-      if (Array.isArray(cats) && cats.length > 0) {
-        setCategories(cats);
-      }
-
-      // 2. Fetch featured books
-      const featured = await api.documents.getFeatured();
-      if (Array.isArray(featured) && featured.length > 0) {
-        setFeaturedBooks(featured);
-      }
-
-      // 3. Fetch catalog
-      let docsResponse;
+      // 1. Prepare documents request (size 100 to fetch all 31 documents)
+      let docsPromise;
       if (searchQuery.trim()) {
-        docsResponse = await api.documents.search(searchQuery.trim());
+        docsPromise = api.documents.search(searchQuery.trim(), 0, 100);
       } else if (selectedCategory) {
-        docsResponse = await api.documents.getByCategory(selectedCategory);
+        docsPromise = api.documents.getByCategory(selectedCategory, 0, 100);
       } else {
-        docsResponse = await api.documents.getAll(0, 24);
-      }
-      if (docsResponse && Array.isArray(docsResponse.content)) {
-        setBooks(docsResponse.content);
+        docsPromise = api.documents.getAll(0, 100);
       }
 
-      // 4. If logged in, fetch bookmarks
-      if (getAuthToken()) {
-        try {
-          const userBookmarks = await api.library.getBookmarks();
-          const ids = new Set((userBookmarks || []).map((b) => b.id));
-          setBookmarkedIds(ids);
-        } catch (e) {
-          // Non-blocking
-        }
+      // 2. Fetch categories, featured documents, catalog, and bookmarks concurrently
+      const [catsRes, featuredRes, docsRes, bookmarksRes] = await Promise.allSettled([
+        api.categories.getAll(),
+        api.documents.getFeatured(),
+        docsPromise,
+        getAuthToken() ? api.library.getBookmarks() : Promise.resolve(null)
+      ]);
+
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value) && catsRes.value.length > 0) {
+        setCategories(catsRes.value);
       }
+
+      if (featuredRes.status === 'fulfilled' && Array.isArray(featuredRes.value) && featuredRes.value.length > 0) {
+        setFeaturedBooks(featuredRes.value);
+      }
+
+      if (docsRes.status === 'fulfilled' && docsRes.value && Array.isArray(docsRes.value.content)) {
+        setBooks(docsRes.value.content);
+      }
+
+      if (bookmarksRes.status === 'fulfilled' && Array.isArray(bookmarksRes.value)) {
+        const ids = new Set(bookmarksRes.value.map((b) => b.id));
+        setBookmarkedIds(ids);
+      }
+
       setError(null);
       setServerOnline(true);
     } catch (err) {
       setServerOnline(false);
-      setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Your uploaded documents & database are safely preserved on disk! Run start-all.bat to reconnect.');
+      if (isLocalhost) {
+        setError('Backend Server is Offline: Run start-all.bat to reconnect.');
+      } else {
+        setError('Cloud Server Waking Up (~20s): Showing cached library.');
+      }
       const cached = getCachedDocuments();
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -118,6 +135,7 @@ export default function App() {
       }
     } finally {
       setLoading(false);
+      setIsBackgroundSyncing(false);
     }
   };
 
@@ -208,8 +226,10 @@ export default function App() {
       {/* Backend connection warning banner */}
       {(!serverOnline || error) && (
         <div style={{
-          background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.15))',
-          borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+          background: isLocalhost
+            ? 'linear-gradient(90deg, rgba(239, 68, 68, 0.18), rgba(245, 158, 11, 0.15))'
+            : 'linear-gradient(90deg, rgba(245, 158, 11, 0.18), rgba(16, 185, 129, 0.15))',
+          borderBottom: isLocalhost ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(245, 158, 11, 0.35)',
           color: '#fca5a5',
           padding: '0.85rem 1.5rem',
           textAlign: 'center',
@@ -220,11 +240,23 @@ export default function App() {
           gap: 12,
           boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
         }}>
-          <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
-          <span style={{ color: '#f3f4f6' }}>
-            <strong style={{ color: '#f87171' }}>Backend Server Offline:</strong>{' '}
-            The system server stopped when your laptop was closed or restarted. Your uploaded books and data are <strong>100% safely preserved</strong> on disk! Double-click <code>start-all.bat</code> to reconnect.
-          </span>
+          {isLocalhost ? (
+            <>
+              <AlertCircle size={18} color="#ef4444" style={{ flexShrink: 0 }} />
+              <span style={{ color: '#f3f4f6' }}>
+                <strong style={{ color: '#f87171' }}>Local Server Offline:</strong>{' '}
+                The system server stopped when your laptop was closed or restarted. Your uploaded books and data are <strong>100% safely preserved</strong> on disk! Double-click <code>start-all.bat</code> to reconnect.
+              </span>
+            </>
+          ) : (
+            <>
+              <Radio size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
+              <span style={{ color: '#f3f4f6' }}>
+                <strong style={{ color: '#fbbf24' }}>Cloud Server Warming Up (~20s):</strong>{' '}
+                Render instances sleep when idle. Your <strong>31 publications</strong> are fully accessible immediately from cache and will seamlessly sync in the background.
+              </span>
+            </>
+          )}
           <button
             className="btn btn-primary"
             style={{ padding: '4px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
@@ -288,8 +320,23 @@ export default function App() {
                     ? categories.find((c) => c.id === selectedCategory)?.name || 'Category Books'
                     : 'Popular & Trending Reads'}
                 </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {books.length} publications available to read immediately
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>{books.length} publications available to read immediately</span>
+                  {isBackgroundSyncing && (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: '0.72rem',
+                      color: 'var(--color-emerald-light)',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      padding: '2px 8px',
+                      borderRadius: 999
+                    }}>
+                      <RefreshCw size={10} style={{ animation: 'spin 1.2s linear infinite' }} /> Syncing cloud archive...
+                    </span>
+                  )}
                 </p>
               </div>
 

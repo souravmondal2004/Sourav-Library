@@ -2,9 +2,13 @@ import React from 'react';
 import { BookOpen, Bookmark, Eye, Download, FileText } from 'lucide-react';
 import { api } from '../../services/api';
 
+// Global in-memory cache for cover image load state
+const coverStatusCache = new Map();
+
 export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked }) {
-  const [hasCoverImg, setHasCoverImg] = React.useState(false);
-  const [coverFailed, setCoverFailed] = React.useState(false);
+  const cachedStatus = coverStatusCache.get(book.id);
+  const [hasCoverImg, setHasCoverImg] = React.useState(cachedStatus === 'loaded');
+  const [coverFailed, setCoverFailed] = React.useState(cachedStatus === 'failed');
 
   // Deep jewel tone gradient covers tailored to the obsidian aesthetic
   const gradients = [
@@ -17,6 +21,16 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
   ];
   const bgGradient = gradients[(book.id || 1) % gradients.length];
 
+  const handleImageLoad = () => {
+    coverStatusCache.set(book.id, 'loaded');
+    setHasCoverImg(true);
+  };
+
+  const handleImageError = () => {
+    coverStatusCache.set(book.id, 'failed');
+    setCoverFailed(true);
+  };
+
   return (
     <div className="book-card">
       <div className="book-card-cover-container" style={{ background: bgGradient }}>
@@ -26,8 +40,10 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
             alt={book.title}
             className="book-card-cover-img"
             loading="lazy"
-            onLoad={() => setHasCoverImg(true)}
-            onError={() => setCoverFailed(true)}
+            decoding="async"
+            fetchpriority="low"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
             style={{
               opacity: hasCoverImg ? 1 : 0,
               transition: 'opacity 0.4s ease',

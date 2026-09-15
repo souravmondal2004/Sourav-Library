@@ -21,18 +21,34 @@ import { api } from '../../services/api';
 // High-performance client-side cache for loaded PDF document buffers across modal sessions
 const globalPdfBufferCache = new Map();
 
-// Helper to reliably load PDF.js library from window or bundled distribution
+// Helper to reliably load PDF.js library asynchronously on demand
 const getPdfJsLib = async () => {
   if (typeof window !== 'undefined' && window.pdfjsLib) {
+    if (window.pdfjsLib.GlobalWorkerOptions && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
     return window.pdfjsLib;
   }
-  // Wait up to 2.5s for the CDN script tag in index.html to finish loading
-  for (let i = 0; i < 25; i++) {
+
+  // Dynamically load the CDN script on demand if not already present
+  if (typeof document !== 'undefined' && !document.getElementById('pdfjs-cdn-script')) {
+    const script = document.createElement('script');
+    script.id = 'pdfjs-cdn-script';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
+  for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 100));
     if (typeof window !== 'undefined' && window.pdfjsLib) {
+      if (window.pdfjsLib.GlobalWorkerOptions && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
       return window.pdfjsLib;
     }
   }
+
   try {
     const pdfjs = await import('pdfjs-dist/build/pdf.js');
     if (pdfjs.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {

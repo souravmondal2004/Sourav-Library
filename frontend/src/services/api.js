@@ -48,12 +48,21 @@ async function request(endpoint, options = {}) {
     options.body = JSON.stringify(options.body);
   }
 
+  // Timeout controller (default 12 seconds for queries, 120s for uploads)
+  const controller = new AbortController();
+  const timeoutDuration = options.timeout || (endpoint.includes('/upload') ? 120000 : 12000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
+  const signal = options.signal || controller.signal;
+
   let response;
   try {
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(url, { ...options, headers, signal });
+    clearTimeout(timeoutId);
     notifyServerStatus(true);
   } catch (fetchErr) {
-    notifyServerStatus(false, fetchErr.message);
+    clearTimeout(timeoutId);
+    const isTimeout = fetchErr.name === 'AbortError';
+    notifyServerStatus(false, isTimeout ? 'Request timed out waiting for cloud server' : fetchErr.message);
     throw fetchErr;
   }
 
@@ -143,6 +152,30 @@ export const getCachedDocuments = () => {
     } catch (e) {}
   }
   return INITIAL_DOCUMENTS;
+};
+
+export const getCachedCategories = () => {
+  const stored = localStorage.getItem('scribd_cached_categories');
+  if (stored !== null) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) {}
+  }
+  return INITIAL_CATEGORIES;
+};
+
+export const getCachedFeatured = () => {
+  const stored = localStorage.getItem('scribd_cached_featured');
+  if (stored !== null) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch (e) {}
+  }
+  const cached = getCachedDocuments();
+  const featured = cached.filter(b => b.isFeatured);
+  return featured.length > 0 ? featured : INITIAL_DOCUMENTS.filter(b => b.isFeatured);
 };
 
 export const setCachedDocuments = (docs) => {
@@ -265,7 +298,7 @@ export const api = {
 
   // Public Catalog & Documents
   documents: {
-    getAll: async (page = 0, size = 12, sortBy = 'createdAt', sortDir = 'desc') => {
+    getAll: async (page = 0, size = 100, sortBy = 'createdAt', sortDir = 'desc') => {
       try {
         const data = await request(`/documents?page=${page}&size=${size}&sortBy=${sortBy}&sortDir=${sortDir}`);
         if (data && Array.isArray(data.content) && data.content.length > 0) {
@@ -297,7 +330,7 @@ export const api = {
         return getCachedDocuments();
       }
     },
-    getByCategory: async (categoryId, page = 0, size = 12) => {
+    getByCategory: async (categoryId, page = 0, size = 100) => {
       try {
         return await request(`/documents/category/${categoryId}?page=${page}&size=${size}`);
       } catch (err) {
@@ -306,7 +339,7 @@ export const api = {
         return { content: filtered, totalElements: filtered.length, isOffline: true };
       }
     },
-    search: async (query, page = 0, size = 12) => {
+    search: async (query, page = 0, size = 100) => {
       try {
         return await request(`/documents/search?q=${encodeURIComponent(query)}&page=${page}&size=${size}`);
       } catch (err) {
@@ -326,10 +359,17 @@ export const api = {
   categories: {
     getAll: async () => {
       try {
-        return await request('/categories');
-      } catch (err) {
-        return INITIAL_CATEGORIES;
+        const data = await request('/categories');
+        if (Array.isArray(data) && data.length > 0) {
+          localStorage.setItem('scribd_cached_categories', JSON.stringify(data));
+          return data;
+        }
+      } catch (err) {}
+      const stored = localStorage.getItem('scribd_cached_categories');
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) {}
       }
+      return INITIAL_CATEGORIES;
     },
     getById: (id) => request(`/categories/${id}`),
     create: (data) => request('/categories', { method: 'POST', body: data })
