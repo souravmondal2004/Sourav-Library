@@ -48,9 +48,10 @@ async function request(endpoint, options = {}) {
     options.body = JSON.stringify(options.body);
   }
 
-  // Timeout controller (default 12 seconds for queries, 120s for uploads)
+  // Timeout controller (default 30s for queries, 60s for deletes, 120s for uploads)
   const controller = new AbortController();
-  const timeoutDuration = options.timeout || (endpoint.includes('/upload') ? 120000 : 12000);
+  const defaultTimeout = endpoint.includes('/upload') ? 120000 : (options.method === 'DELETE' ? 60000 : 30000);
+  const timeoutDuration = options.timeout || defaultTimeout;
   const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
   const signal = options.signal || controller.signal;
 
@@ -58,11 +59,16 @@ async function request(endpoint, options = {}) {
   try {
     response = await fetch(url, { ...options, headers, signal });
     clearTimeout(timeoutId);
-    notifyServerStatus(true);
+    if (!options.silent && !options.isBackground) {
+      notifyServerStatus(true);
+    }
   } catch (fetchErr) {
     clearTimeout(timeoutId);
     const isTimeout = fetchErr.name === 'AbortError';
-    notifyServerStatus(false, isTimeout ? 'Request timed out waiting for cloud server' : fetchErr.message);
+    // Do not set global offline status for background or silent tracking calls
+    if (!options.silent && !options.isBackground) {
+      notifyServerStatus(false, isTimeout ? 'Request timed out waiting for cloud server' : fetchErr.message);
+    }
     throw fetchErr;
   }
 
@@ -443,7 +449,7 @@ export const api = {
       return updated;
     },
     deleteDocument: async (id) => {
-      const res = await request(`/admin/documents/${id}`, { method: 'DELETE' });
+      const res = await request(`/admin/documents/${id}`, { method: 'DELETE', timeout: 60000 });
       removeDocumentFromCache(id);
       return res;
     },
@@ -567,7 +573,10 @@ export const api = {
       try {
         await request(`/user/library/progress/${documentId}`, {
           method: 'POST',
-          body: { lastPage, progressPercent }
+          body: { lastPage, progressPercent },
+          isBackground: true,
+          silent: true,
+          timeout: 25000
         });
       } catch (err) {}
       try {

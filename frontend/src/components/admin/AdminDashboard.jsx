@@ -236,12 +236,14 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   const handleDelete = async (id, docTitle) => {
     if (window.confirm(`Are you sure you want to permanently delete "${docTitle}"?`)) {
       try {
+        setMessage({ type: 'info', text: `Deleting "${docTitle}"... please wait.` });
         await api.admin.deleteDocument(id);
         loadAdminDocs();
         loadStats();
         setMessage({ type: 'success', text: `Document "${docTitle}" deleted successfully.` });
       } catch (err) {
         alert('Failed to delete document: ' + err.message);
+        setMessage({ type: 'error', text: `Failed to delete document: ${err.message}` });
       }
     }
   };

@@ -173,12 +173,12 @@ public class DatabaseConfig {
             if (username != null && !username.isBlank()) config.setUsername(username);
             if (password != null && !password.isBlank()) config.setPassword(password);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
-            config.setConnectionTimeout(30000);
-            config.setIdleTimeout(600000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(5);
+            config.setConnectionTimeout(15000);
+            config.setIdleTimeout(300000);
             config.setMaxLifetime(1800000);
-            config.setLeakDetectionThreshold(45000);
+            config.setLeakDetectionThreshold(15000);
 
             log.info("Successfully configured Cloud PostgreSQL DataSource for host: {} (port: {})", host, port);
             return new HikariDataSource(config);
@@ -200,9 +200,10 @@ public class DatabaseConfig {
             if (defaultUsername != null && !defaultUsername.isBlank()) config.setUsername(defaultUsername);
             if (defaultPassword != null && !defaultPassword.isBlank()) config.setPassword(defaultPassword);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(10);
-            config.setMinimumIdle(2);
-            config.setConnectionTimeout(30000);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(5);
+            config.setConnectionTimeout(15000);
+            config.setLeakDetectionThreshold(15000);
             return new HikariDataSource(config);
         } catch (Exception e) {
             log.error("Failed to configure JDBC PostgreSQL DataSource: {}", e.getMessage());

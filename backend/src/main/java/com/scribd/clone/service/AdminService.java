@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import com.scribd.clone.dto.UserActivityDto;
 import com.scribd.clone.dto.UserSummaryDto;
+import com.scribd.clone.repository.BookmarkRepository;
 import com.scribd.clone.repository.ReadingHistoryRepository;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +33,7 @@ public class AdminService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final ReadingHistoryRepository readingHistoryRepository;
+    private final BookmarkRepository bookmarkRepository;
     private final FileStorageService fileStorageService;
 
     public AdminService(
@@ -39,12 +41,14 @@ public class AdminService {
             CategoryRepository categoryRepository,
             UserRepository userRepository,
             ReadingHistoryRepository readingHistoryRepository,
+            BookmarkRepository bookmarkRepository,
             FileStorageService fileStorageService
     ) {
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.readingHistoryRepository = readingHistoryRepository;
+        this.bookmarkRepository = bookmarkRepository;
         this.fileStorageService = fileStorageService;
     }
 
@@ -207,6 +211,19 @@ public class AdminService {
     public void deleteDocument(Long id) {
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Document not found with id: " + id));
+
+        // Delete relational dependencies to prevent FK constraint violations
+        try {
+            if (readingHistoryRepository != null) {
+                readingHistoryRepository.deleteByDocumentId(id);
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            if (bookmarkRepository != null) {
+                bookmarkRepository.deleteByDocumentId(id);
+            }
+        } catch (Exception ignored) {}
 
         // Delete physical files
         if (document.getFileName() != null) {
