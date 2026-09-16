@@ -24,6 +24,8 @@ services:
           property: connectionString
       - key: JAVA_TOOL_OPTIONS
         value: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=40.0"
+      - key: RENDER_EXTERNAL_URL
+        value: https://sourav-library.onrender.com
 
   # Frontend Static Site
   - type: web

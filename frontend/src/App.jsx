@@ -47,8 +47,13 @@ export default function App() {
     }, 100);
   };
 
-  // Listen to server status notifications
+  // Listen to server status notifications + Auto-retry when offline + Keep-alive ping
   useEffect(() => {
+    let retryTimer = null;
+    let keepAliveTimer = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 30; // Stop after 5 minutes (30 × 10s)
+
     const handleStatus = (e) => {
       if (e.detail) {
         const isOnline = e.detail.online;
@@ -58,16 +63,54 @@ export default function App() {
             setError('Backend Server is Offline: Your system server stopped (e.g. laptop lid was closed). Run start-all.bat to reconnect.');
           } else {
             setError('Cloud Server Waking Up (~20s): Render sleeps inactive containers. Your library is loaded from cache and will sync automatically.');
+            // Auto-retry every 10 seconds until server wakes up
+            if (!retryTimer) {
+              retryCount = 0;
+              retryTimer = setInterval(async () => {
+                retryCount++;
+                if (retryCount > MAX_RETRIES) {
+                  clearInterval(retryTimer);
+                  retryTimer = null;
+                  return;
+                }
+                const online = await api.system.checkHealth();
+                if (online) {
+                  clearInterval(retryTimer);
+                  retryTimer = null;
+                  retryCount = 0;
+                  fetchData(); // Re-fetch all data once server is back
+                }
+              }, 10000);
+            }
           }
         } else {
           setError(null);
+          // Server came online — clear retry timer
+          if (retryTimer) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+            retryCount = 0;
+          }
         }
       }
     };
 
     window.addEventListener('scribd-server-status', handleStatus);
     api.system.checkHealth();
-    return () => window.removeEventListener('scribd-server-status', handleStatus);
+
+    // Keep-alive: ping the backend every 8 minutes while user has the tab open
+    // This prevents Render from sleeping (15 min inactivity threshold)
+    if (!isLocalhost) {
+      keepAliveTimer = setInterval(() => {
+        api.system.checkHealth();
+      }, 8 * 60 * 1000); // 8 minutes
+    }
+
+    return () => {
+      window.removeEventListener('scribd-server-status', handleStatus);
+      if (retryTimer) clearInterval(retryTimer);
+      if (keepAliveTimer) clearInterval(keepAliveTimer);
+    };
   }, []);
 
   // Load initial data (categories, catalog, bookmarks) with instant SWR & parallel fetching
@@ -253,7 +296,7 @@ export default function App() {
               <Radio size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
               <span style={{ color: '#f3f4f6' }}>
                 <strong style={{ color: '#fbbf24' }}>Cloud Server Warming Up (~20s):</strong>{' '}
-                Render instances sleep when idle. Your <strong>31 publications</strong> are fully accessible immediately from cache and will seamlessly sync in the background.
+                Render instances sleep when idle. Auto-reconnecting every 10s... Your <strong>{books?.length || 31} publications</strong> are accessible from cache.
               </span>
             </>
           )}
