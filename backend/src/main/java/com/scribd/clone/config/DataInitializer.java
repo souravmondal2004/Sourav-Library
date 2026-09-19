@@ -7,6 +7,7 @@ import com.scribd.clone.repository.CategoryRepository;
 import com.scribd.clone.repository.DocumentRepository;
 import com.scribd.clone.repository.UserRepository;
 import com.scribd.clone.service.FileStorageService;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -16,12 +17,17 @@ import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 @Component
@@ -53,7 +59,7 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         User admin = initUsers();
         initCategories();
-        initSampleDocuments(admin);
+        initBundledAndSampleDocuments(admin);
     }
 
     private User initUsers() {
@@ -102,35 +108,16 @@ public class DataInitializer implements CommandLineRunner {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    private void initSampleDocuments(User admin) {
-        if (documentRepository.count() > 0) {
-            log.info("Database catalog already contains {} documents. Preserving all user documents, uploads, and deletions.", documentRepository.count());
-            markCatalogInitializedInDatabase();
-            return;
-        }
+    private void initBundledAndSampleDocuments(User admin) {
+        // 1. Scan and register any bundled PDF books from classpath:books/*.pdf
+        scanAndRegisterBundledBooks(admin);
 
-        // 1. Check permanent database flag
-        if (isCatalogInitializedInDatabase()) {
-            log.info("Database catalog was previously initialized (verified via database APP_METADATA). Preserving all user deletions and state.");
-            return;
-        }
+        // 2. Scan local-books folder if present on disk
+        scanLocalBooksDirectory(admin);
 
-        // 2. Check disk marker flag as secondary check
-        File marker = new File("data/.initialized");
-        if (marker.exists()) {
-            log.info("Database catalog was previously initialized (verified via disk flag). Preserving all user documents, uploads, and deletions.");
-            markCatalogInitializedInDatabase();
-            return;
-        }
-
-        // 3. If categories already exist, the database has been used before
-        if (categoryRepository.count() > 0 && userRepository.count() > 1) {
-            log.info("Existing categories/users detected in database. Catalog was previously modified; skipping sample re-generation.");
-            markCatalogInitializedInDatabase();
-            return;
-        }
-
+        // 3. If catalog is still empty, seed default architectural guides
         if (documentRepository.count() == 0) {
+            log.info("Catalog is empty. Generating default starter books...");
             Category tech = categoryRepository.findBySlug("technology-coding").orElse(null);
             Category business = categoryRepository.findBySlug("business-leadership").orElse(null);
             Category science = categoryRepository.findBySlug("science-engineering").orElse(null);
@@ -184,18 +171,152 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
-        // Mark initialized both in DB and disk
         markCatalogInitializedInDatabase();
+    }
+
+    private void scanAndRegisterBundledBooks(User admin) {
         try {
-            File parent = marker.getParentFile();
-            if (parent != null && !parent.exists()) {
-                parent.mkdirs();
+            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+            Resource[] resources = resolver.getResources("classpath*:books/*.pdf");
+            log.info("Scanning for bundled PDF books in classpath:books/*.pdf (Found: {})", resources.length);
+
+            for (Resource res : resources) {
+                try {
+                    String filename = res.getFilename();
+                    if (filename == null || !filename.toLowerCase().endsWith(".pdf")) continue;
+
+                    if (documentRepository.existsByFileName(filename)) {
+                        log.debug("Bundled book '{}' already cataloged.", filename);
+                        continue;
+                    }
+
+                    byte[] bytes;
+                    try (InputStream is = res.getInputStream()) {
+                        bytes = is.readAllBytes();
+                    }
+                    if (bytes.length == 0) continue;
+
+                    registerPdfBook(filename, bytes, admin);
+                } catch (Exception ex) {
+                    log.warn("Could not load bundled resource {}: {}", res.getFilename(), ex.getMessage());
+                }
             }
-            marker.createNewFile();
-            log.info("Created initialization marker flag: {}", marker.getAbsolutePath());
-        } catch (IOException e) {
-            log.warn("Could not create initialization marker file: {}", e.getMessage());
+        } catch (Exception e) {
+            log.warn("Error scanning classpath bundled books: {}", e.getMessage());
         }
+    }
+
+    private void scanLocalBooksDirectory(User admin) {
+        try {
+            Path[] potentialPaths = {
+                Paths.get("local-books"),
+                Paths.get("../local-books"),
+                Paths.get("src/main/resources/books")
+            };
+
+            for (Path dir : potentialPaths) {
+                if (Files.exists(dir) && Files.isDirectory(dir)) {
+                    try (var stream = Files.list(dir)) {
+                        stream.filter(p -> p.toString().toLowerCase().endsWith(".pdf")).forEach(pdfPath -> {
+                            try {
+                                String filename = pdfPath.getFileName().toString();
+                                if (documentRepository.existsByFileName(filename)) return;
+
+                                byte[] bytes = Files.readAllBytes(pdfPath);
+                                registerPdfBook(filename, bytes, admin);
+                            } catch (Exception e) {
+                                log.warn("Failed to register local book {}: {}", pdfPath, e.getMessage());
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void registerPdfBook(String filename, byte[] bytes, User admin) {
+        try {
+            // 1. Ensure file is stored in file system and DB table DOCUMENT_CONTENTS
+            fileStorageService.storeDirectly(filename, bytes, "application/pdf");
+
+            // 2. Count pages safely using PDFBox
+            int pageCount = 1;
+            try (PDDocument doc = Loader.loadPDF(bytes)) {
+                pageCount = Math.max(1, doc.getNumberOfPages());
+            } catch (Exception ignored) {
+                pageCount = fileStorageService.countPdfPages(filename);
+            }
+
+            // 3. Format title from filename
+            String base = filename.replaceAll("(?i)\\.pdf$", "").replace("-", " ").replace("_", " ");
+            String title = formatTitle(base);
+            String author = "Sourav's Library";
+            if (title.contains(" - ")) {
+                String[] parts = title.split(" - ", 2);
+                author = parts[0].trim();
+                title = parts[1].trim();
+            }
+
+            Category defaultCat = categoryRepository.findBySlug("technology-coding")
+                    .orElseGet(() -> categoryRepository.findAll().stream().findFirst().orElse(null));
+            Category category = resolveCategoryByTitle(title, defaultCat);
+
+            Document doc = new Document();
+            doc.setTitle(title);
+            doc.setAuthor(author);
+            doc.setDescription("Authentic publication '" + title + "' preserved in Sourav's Library collection.");
+            doc.setCategory(category);
+            doc.setFileName(filename);
+            doc.setOriginalFilename(filename);
+            doc.setFileSize((long) bytes.length);
+            doc.setFileType("application/pdf");
+            doc.setPageCount(pageCount);
+            doc.setLanguage("English");
+            doc.setPublishedYear(java.time.Year.now().getValue());
+            doc.setIsFeatured(true);
+            doc.setIsPublished(true);
+            doc.setViewCount(24L);
+            doc.setDownloadCount(12L);
+            doc.setUploadedBy(admin);
+
+            documentRepository.save(doc);
+            log.info("✅ Registered bundled PDF book into catalog: '{}' ({} pages, {} bytes)", title, pageCount, bytes.length);
+        } catch (Exception e) {
+            log.warn("Error registering PDF book {}: {}", filename, e.getMessage());
+        }
+    }
+
+    private String formatTitle(String raw) {
+        if (raw == null || raw.isBlank()) return "Untitled Document";
+        String[] words = raw.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String w : words) {
+            if (w.isEmpty()) continue;
+            sb.append(Character.toUpperCase(w.charAt(0)));
+            if (w.length() > 1) {
+                sb.append(w.substring(1).toLowerCase());
+            }
+            sb.append(" ");
+        }
+        return sb.toString().trim();
+    }
+
+    private Category resolveCategoryByTitle(String title, Category defaultCat) {
+        if (title == null) return defaultCat;
+        String lower = title.toLowerCase();
+        if (lower.contains("code") || lower.contains("spring") || lower.contains("java") || lower.contains("python") || lower.contains("tech") || lower.contains("software") || lower.contains("machine learning") || lower.contains("ai")) {
+            return categoryRepository.findBySlug("technology-coding").orElse(defaultCat);
+        }
+        if (lower.contains("business") || lower.contains("lead") || lower.contains("innovat") || lower.contains("market") || lower.contains("finance")) {
+            return categoryRepository.findBySlug("business-leadership").orElse(defaultCat);
+        }
+        if (lower.contains("science") || lower.contains("quantum") || lower.contains("physics") || lower.contains("bio") || lower.contains("chem")) {
+            return categoryRepository.findBySlug("science-engineering").orElse(defaultCat);
+        }
+        if (lower.contains("fiction") || lower.contains("novel") || lower.contains("tale") || lower.contains("story")) {
+            return categoryRepository.findBySlug("literature-fiction").orElse(defaultCat);
+        }
+        return defaultCat;
     }
 
     private boolean isCatalogInitializedInDatabase() {

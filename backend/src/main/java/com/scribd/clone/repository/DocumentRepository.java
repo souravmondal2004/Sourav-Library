@@ -13,6 +13,10 @@ import java.util.List;
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
+    boolean existsByFileName(String fileName);
+
+    boolean existsByTitle(String title);
+
     // Public active catalog queries
     Page<Document> findByIsPublishedTrue(Pageable pageable);
 

@@ -30,6 +30,12 @@ if "!COMMIT_MSG!"=="" (
     set "COMMIT_MSG=auto-commit: updates at !TIMESTAMP!"
 )
 
+:: Sync any PDFs from local-books folder into backend resources so they are deployed to Render
+if exist "%~dp0local-books" (
+    if not exist "%~dp0backend\src\main\resources\books" mkdir "%~dp0backend\src\main\resources\books"
+    copy /y "%~dp0local-books\*.pdf" "%~dp0backend\src\main\resources\books\" >nul 2>&1
+)
+
 echo.
 echo [+] Staging all changes...
 git add -A
