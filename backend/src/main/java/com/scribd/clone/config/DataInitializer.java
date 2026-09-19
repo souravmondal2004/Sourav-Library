@@ -171,6 +171,18 @@ public class DataInitializer implements CommandLineRunner {
             }
         }
 
+        // Ensure all uploaded PDF documents are assigned to Technology & Coding category
+        Category techCat = categoryRepository.findBySlug("technology-coding").orElse(null);
+        if (techCat != null) {
+            List<Document> allDocs = documentRepository.findAll();
+            for (Document d : allDocs) {
+                if (d.getFileName() != null && d.getFileName().toLowerCase().contains("70")) {
+                    d.setCategory(techCat);
+                    documentRepository.save(d);
+                }
+            }
+        }
+
         markCatalogInitializedInDatabase();
     }
 
@@ -257,9 +269,9 @@ public class DataInitializer implements CommandLineRunner {
                 title = parts[1].trim();
             }
 
-            Category defaultCat = categoryRepository.findBySlug("technology-coding")
+            Category techCategory = categoryRepository.findBySlug("technology-coding")
                     .orElseGet(() -> categoryRepository.findAll().stream().findFirst().orElse(null));
-            Category category = resolveCategoryByTitle(title, defaultCat);
+            Category category = techCategory;
 
             Document doc = new Document();
             doc.setTitle(title);
