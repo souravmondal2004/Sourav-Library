@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/health", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/documents/**").permitAll()
+                        .requestMatchers("/api/videos/**").permitAll()
+                        .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         // Admin Channel protected endpoints

@@ -1,10 +1,13 @@
 import React from 'react';
-import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles, Compass } from 'lucide-react';
+import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles, Compass, Tv, Video } from 'lucide-react';
+import YoutubeIcon from '../common/YoutubeIcon';
 
 export default function Navbar({
   currentUser,
   currentView,
   setCurrentView,
+  currentSection = 'books',
+  onSelectSection,
   searchQuery,
   setSearchQuery,
   selectedCategory,
@@ -40,6 +43,37 @@ export default function Navbar({
             <span className="status-dot"></span>
             {serverOnline ? 'Online' : 'Offline'}
           </span>
+        </div>
+
+        {/* 3-Section Switcher Tabs */}
+        <div className="section-switcher-bar desktop-nav-only">
+          <button
+            type="button"
+            className={`section-switch-btn ${currentSection === 'books' ? 'active' : ''}`}
+            onClick={() => onSelectSection && onSelectSection('books')}
+            title="Scribd Digital Library & PDF Reader"
+          >
+            <BookOpen size={14} />
+            <span>Books & PDFs</span>
+          </button>
+          <button
+            type="button"
+            className={`section-switch-btn video-btn ${currentSection === 'videos' ? 'active' : ''}`}
+            onClick={() => onSelectSection && onSelectSection('videos')}
+            title="YouTube & Uploaded Video Streaming Hub"
+          >
+            <YoutubeIcon size={15} color={currentSection === 'videos' ? '#ff0000' : 'currentColor'} />
+            <span>Video Hub</span>
+          </button>
+          <button
+            type="button"
+            className={`section-switch-btn ai-btn ${currentSection === 'ai' ? 'active' : ''}`}
+            onClick={() => onSelectSection && onSelectSection('ai')}
+            title="Sourav AI Chatbot (Gemini Powered)"
+          >
+            <Sparkles size={14} color={currentSection === 'ai' ? '#c084fc' : 'currentColor'} />
+            <span>Sourav AI</span>
+          </button>
         </div>
 
         {/* Search */}

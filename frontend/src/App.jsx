@@ -8,14 +8,21 @@ import PdfReaderModal from './components/reader/PdfReaderModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
+import VideoHub from './components/video/VideoHub';
+import VideoPlayerView from './components/video/VideoPlayerView';
+import SouravAIChat from './components/ai/SouravAIChat';
+import { videoService } from './services/videoService';
 import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategories, getCachedFeatured } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
   const [currentView, setCurrentView] = useState('home'); // 'home' | 'admin'
+  const [currentSection, setCurrentSection] = useState('books'); // 'books' | 'videos' | 'ai'
+  const [videos, setVideos] = useState(() => videoService.getAllVideos());
+  const [activeVideo, setActiveVideo] = useState(null);
   const [categories, setCategories] = useState(getCachedCategories());
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [books, setBooks] = useState(getCachedDocuments());
@@ -239,8 +246,18 @@ export default function App() {
     if (currentView === 'admin') setCurrentView('home');
   };
 
+  const handleSelectSection = (section) => {
+    setCurrentSection(section);
+    if (currentView === 'admin') setCurrentView('home');
+    if (section === 'videos') {
+      setActiveVideo(null);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleExplore = () => {
     setCurrentView('home');
+    setCurrentSection('books');
     setSelectedCategory(null);
     setSearchQuery('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -255,6 +272,8 @@ export default function App() {
         currentUser={currentUser}
         currentView={currentView}
         setCurrentView={setCurrentView}
+        currentSection={currentSection}
+        onSelectSection={handleSelectSection}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         selectedCategory={selectedCategory}
@@ -317,6 +336,32 @@ export default function App() {
           onRefreshCategories={fetchData}
           onOpenReader={(book) => setActiveReaderBook(book)}
         />
+      ) : currentSection === 'videos' ? (
+        <main>
+          {activeVideo ? (
+            <VideoPlayerView
+              video={activeVideo}
+              onBack={() => setActiveVideo(null)}
+              onSelectVideo={(v) => setActiveVideo(v)}
+              allVideos={videos}
+            />
+          ) : (
+            <VideoHub
+              onSelectVideo={(v) => setActiveVideo(v)}
+              currentUser={currentUser}
+              videos={videos}
+              setVideos={setVideos}
+            />
+          )}
+        </main>
+      ) : currentSection === 'ai' ? (
+        <main>
+          <SouravAIChat
+            currentUser={currentUser}
+            allBooks={books}
+            allVideos={videos}
+          />
+        </main>
       ) : (
         <main>
           {/* Hero Section */}
@@ -627,6 +672,8 @@ export default function App() {
       {/* Mobile Bottom Navigation Bar */}
       <MobileBottomNav
         currentView={currentView}
+        currentSection={currentSection}
+        onSelectSection={handleSelectSection}
         onExplore={handleExplore}
         onOpenSearch={handleOpenMobileSearch}
         onOpenLibrary={() => setShowLibraryModal(true)}

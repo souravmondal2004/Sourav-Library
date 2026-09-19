@@ -1,10 +1,12 @@
 import React from 'react';
-import { Compass, Search, BookmarkCheck, Shield, User, LogIn } from 'lucide-react';
+import { BookOpen, Sparkles, BookmarkCheck, Shield, User, LogIn } from 'lucide-react';
+import YoutubeIcon from '../common/YoutubeIcon';
 
 export default function MobileBottomNav({
   currentView,
+  currentSection = 'books',
+  onSelectSection,
   onExplore,
-  onOpenSearch,
   onOpenLibrary,
   currentUser,
   isAdmin,
@@ -12,32 +14,47 @@ export default function MobileBottomNav({
   onOpenAuth,
   searchQuery
 }) {
-  const isExploreActive = currentView === 'home' && !searchQuery;
-  const isSearchActive = !!searchQuery;
+  const isBooksActive = currentView === 'home' && currentSection === 'books';
+  const isVideosActive = currentSection === 'videos';
+  const isAIActive = currentSection === 'ai';
   const isAdminActive = currentView === 'admin';
 
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
       <button
         type="button"
-        className={`mobile-nav-item ${isExploreActive ? 'active' : ''}`}
-        onClick={onExplore}
+        className={`mobile-nav-item ${isBooksActive ? 'active' : ''}`}
+        onClick={() => {
+          onSelectSection && onSelectSection('books');
+          onExplore();
+        }}
       >
         <div className="mobile-nav-icon-box">
-          <Compass size={20} strokeWidth={isExploreActive ? 2.5 : 2} />
+          <BookOpen size={19} strokeWidth={isBooksActive ? 2.5 : 2} />
         </div>
-        <span className="mobile-nav-label">Explore</span>
+        <span className="mobile-nav-label">Books</span>
       </button>
 
       <button
         type="button"
-        className={`mobile-nav-item ${isSearchActive ? 'active' : ''}`}
-        onClick={onOpenSearch}
+        className={`mobile-nav-item ${isVideosActive ? 'active' : ''}`}
+        onClick={() => onSelectSection && onSelectSection('videos')}
       >
         <div className="mobile-nav-icon-box">
-          <Search size={20} strokeWidth={isSearchActive ? 2.5 : 2} />
+          <YoutubeIcon size={20} color={isVideosActive ? '#ff0000' : 'currentColor'} />
         </div>
-        <span className="mobile-nav-label">Search</span>
+        <span className="mobile-nav-label">Videos</span>
+      </button>
+
+      <button
+        type="button"
+        className={`mobile-nav-item ${isAIActive ? 'active' : ''}`}
+        onClick={() => onSelectSection && onSelectSection('ai')}
+      >
+        <div className="mobile-nav-icon-box">
+          <Sparkles size={19} color={isAIActive ? '#c084fc' : 'currentColor'} strokeWidth={isAIActive ? 2.5 : 2} />
+        </div>
+        <span className="mobile-nav-label">Sourav AI</span>
       </button>
 
       <button
@@ -46,7 +63,7 @@ export default function MobileBottomNav({
         onClick={onOpenLibrary}
       >
         <div className="mobile-nav-icon-box">
-          <BookmarkCheck size={20} />
+          <BookmarkCheck size={19} />
         </div>
         <span className="mobile-nav-label">Library</span>
       </button>
