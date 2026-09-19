@@ -31,11 +31,33 @@ public class HealthController {
 
         String dbType = DatabaseConfig.getActiveDatabaseType();
         boolean persistent = DatabaseConfig.isDatabasePersistent();
+        String detectedEnv = DatabaseConfig.getDetectedEnvKey();
+        String targetHost = DatabaseConfig.getTargetDatabaseHost();
+        String connStatus = DatabaseConfig.getConnectionStatus();
+        String lastError = DatabaseConfig.getLastError();
 
         // If client is a web browser requesting HTML, present a beautiful status dashboard
         if (acceptHeader.contains(MediaType.TEXT_HTML_VALUE)) {
             String statusColor = persistent ? "#10b981" : "#fbbf24";
-            String statusText = persistent ? "Persistent (Active)" : "Ephemeral";
+            String statusText = persistent ? "Persistent (Active)" : "Ephemeral Fallback";
+
+            String diagBanner = "";
+            if (!persistent) {
+                diagBanner = """
+                    <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem; text-align: left; font-size: 0.85rem;">
+                        <div style="color: #fbbf24; font-weight: 700; margin-bottom: 0.3rem;">⚠️ Cloud Database Warning: Running on Local Ephemeral Storage</div>
+                        <div style="color: #cbd5e1; line-height: 1.4;">
+                            <strong>Environment Key:</strong> {ENV_KEY}<br>
+                            <strong>Status:</strong> {CONN_STATUS}<br>
+                            {ERROR_DETAILS}
+                            <span style="color: #94a3b8; display: block; margin-top: 0.4rem;">To make data 100% permanent, add your PostgreSQL connection string as <code>DATABASE_URL</code> in Render Environment variables.</span>
+                        </div>
+                    </div>
+                    """
+                    .replace("{ENV_KEY}", detectedEnv != null ? detectedEnv : "None")
+                    .replace("{CONN_STATUS}", connStatus != null ? connStatus : "No config")
+                    .replace("{ERROR_DETAILS}", lastError != null ? "<strong>Error:</strong> <span style='color: #f87171;'>" + lastError + "</span><br>" : "");
+            }
 
             String html = """
                 <!DOCTYPE html>
@@ -105,7 +127,7 @@ public class HealthController {
                             100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
                         }
                         h1 { font-size: 1.85rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
-                        p.subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; line-height: 1.5; }
+                        p.subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 1.5rem; line-height: 1.5; }
                         .metrics-grid {
                             display: grid;
                             grid-template-columns: 1fr 1fr;
@@ -165,6 +187,8 @@ public class HealthController {
                         <h1>Sourav's Library Cloud Service</h1>
                         <p class="subtitle">High-performance Spring Boot document delivery service & high-fidelity byte-range streaming engine.</p>
                         
+                        {DIAG_BANNER}
+
                         <div class="metrics-grid">
                             <div class="metric-card">
                                 <div class="metric-label">Cloud Database</div>
@@ -196,6 +220,7 @@ public class HealthController {
                 </body>
                 </html>
                 """
+                .replace("{DIAG_BANNER}", diagBanner)
                 .replace("{DB_TYPE}", dbType != null ? dbType : "PostgreSQL (Cloud Persistent)")
                 .replace("{STATUS_COLOR}", statusColor)
                 .replace("{STATUS_TEXT}", statusText)
@@ -212,6 +237,14 @@ public class HealthController {
         response.put("timestamp", Instant.now().toString());
         response.put("database", dbType);
         response.put("isPersistent", persistent);
+
+        Map<String, Object> diagnostics = new LinkedHashMap<>();
+        diagnostics.put("detectedEnvironmentVariable", detectedEnv);
+        diagnostics.put("targetHost", targetHost);
+        diagnostics.put("connectionStatus", connStatus);
+        diagnostics.put("lastError", lastError);
+        response.put("databaseDiagnostics", diagnostics);
+
         response.put("documentsCount", docCount);
         response.put("webAppUrl", "https://sourav-library.vercel.app");
 

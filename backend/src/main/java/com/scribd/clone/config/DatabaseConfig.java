@@ -21,6 +21,10 @@ public class DatabaseConfig {
 
     private static String activeDatabaseType = "H2 (Local Ephemeral Container)";
     private static boolean databasePersistent = false;
+    private static String detectedEnvKey = "None";
+    private static String targetDatabaseHost = "None";
+    private static String connectionStatus = "Initializing";
+    private static String lastConnectionError = null;
 
     @Value("${SPRING_DATASOURCE_URL:${DATABASE_URL:${POSTGRES_URL:${POSTGRESQL_URL:}}}}")
     private String databaseUrlProperty;
@@ -42,6 +46,26 @@ public class DatabaseConfig {
         return databasePersistent;
     }
 
+    public static String getDetectedEnvKey() {
+        return detectedEnvKey;
+    }
+
+    public static String getTargetDatabaseHost() {
+        return targetDatabaseHost;
+    }
+
+    public static String getConnectionStatus() {
+        return connectionStatus;
+    }
+
+    public static String getLastConnectionError() {
+        return lastConnectionError;
+    }
+
+    public static String getLastError() {
+        return lastConnectionError;
+    }
+
     @Bean
     @Primary
     public DataSource dataSource() {
@@ -57,7 +81,8 @@ public class DatabaseConfig {
                 if (ds != null) {
                     activeDatabaseType = "PostgreSQL (Cloud Persistent)";
                     databasePersistent = true;
-                    log.info("Active Database: PostgreSQL (Cloud Persistent)");
+                    connectionStatus = "Active & Connected (" + targetDatabaseHost + ")";
+                    log.info("Active Database: PostgreSQL (Cloud Persistent) on {}", targetDatabaseHost);
                     return ds;
                 }
             } else if (url.startsWith("jdbc:postgresql://")) {
@@ -65,6 +90,7 @@ public class DatabaseConfig {
                 if (ds != null) {
                     activeDatabaseType = "PostgreSQL (Cloud Persistent)";
                     databasePersistent = true;
+                    connectionStatus = "Active & Connected (JDBC PostgreSQL)";
                     log.info("Active Database: PostgreSQL (Cloud Persistent)");
                     return ds;
                 }
@@ -73,6 +99,7 @@ public class DatabaseConfig {
                 if (ds != null) {
                     activeDatabaseType = "Oracle (Cloud / Enterprise)";
                     databasePersistent = true;
+                    connectionStatus = "Active & Connected (Oracle)";
                     log.info("Active Database: Oracle (Enterprise)");
                     return ds;
                 }
@@ -82,11 +109,17 @@ public class DatabaseConfig {
         // 2. Default Local Fallback (H2 file-based persistent database)
         activeDatabaseType = "H2 (Local Container Ephemeral)";
         databasePersistent = false;
+        if (lastConnectionError == null) {
+            connectionStatus = "Using H2 (No cloud database configured in environment)";
+        } else {
+            connectionStatus = "Using H2 Fallback (Cloud DB connection failed: " + lastConnectionError + ")";
+        }
+
         log.warn("==========================================================================");
-        log.warn("⚠️ No Cloud Database URL (DATABASE_URL / POSTGRES_URL) detected.");
+        log.warn("⚠️ Cloud Database is NOT active. Status: {}", connectionStatus);
         log.warn("Falling back to local H2 storage: ./data/scribddb");
         log.warn("NOTE: On Render free tier, local container files reset when the server sleeps!");
-        log.warn("To make data 100% permanent, add DATABASE_URL in Render environment.");
+        log.warn("To make data 100% permanent, ensure DATABASE_URL is set and reachable in Render.");
         log.warn("==========================================================================");
 
         HikariConfig config = new HikariConfig();
@@ -108,11 +141,17 @@ public class DatabaseConfig {
         for (String key : envKeys) {
             String val = System.getenv(key);
             if (val != null && !val.isBlank()) {
+                detectedEnvKey = key;
                 log.info("Discovered database URL from environment variable: {}", key);
                 return val.trim();
             }
         }
-        return databaseUrlProperty;
+        if (databaseUrlProperty != null && !databaseUrlProperty.isBlank()) {
+            detectedEnvKey = "Spring Property (spring.datasource.url)";
+            return databaseUrlProperty.trim();
+        }
+        detectedEnvKey = "None (DATABASE_URL / SPRING_DATASOURCE_URL is unset)";
+        return null;
     }
 
     private DataSource configurePostgresUri(String rawUrl) {
@@ -126,8 +165,8 @@ public class DatabaseConfig {
             String userInfo = null;
             String hostPortDb = noPrefix;
 
-            // Separate user:pass from host:port/db
-            int atIndex = noPrefix.indexOf('@');
+            // Separate user:pass from host:port/db using lastIndexOf to preserve passwords with '@'
+            int atIndex = noPrefix.lastIndexOf('@');
             if (atIndex > 0) {
                 userInfo = noPrefix.substring(0, atIndex);
                 hostPortDb = noPrefix.substring(atIndex + 1);
@@ -161,6 +200,7 @@ public class DatabaseConfig {
                     port = Integer.parseInt(parts[1]);
                 } catch (NumberFormatException ignored) {}
             }
+            targetDatabaseHost = host + ":" + port;
 
             // Ensure SSL is enabled for cloud PostgreSQL instances
             String jdbcUrl = "jdbc:postgresql://" + host + ":" + port + dbAndParams;
@@ -173,17 +213,28 @@ public class DatabaseConfig {
             if (username != null && !username.isBlank()) config.setUsername(username);
             if (password != null && !password.isBlank()) config.setPassword(password);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(20);
-            config.setMinimumIdle(5);
-            config.setConnectionTimeout(15000);
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(1);
+            config.setConnectionTimeout(30000);
+            config.setInitializationFailTimeout(30000);
             config.setIdleTimeout(300000);
             config.setMaxLifetime(1800000);
             config.setLeakDetectionThreshold(15000);
 
-            log.info("Successfully configured Cloud PostgreSQL DataSource for host: {} (port: {})", host, port);
-            return new HikariDataSource(config);
+            log.info("Attempting connection to Cloud PostgreSQL at {}...", targetDatabaseHost);
+            HikariDataSource ds = new HikariDataSource(config);
+
+            // Verify the connection actually succeeds
+            try (java.sql.Connection conn = ds.getConnection()) {
+                log.info("Successfully connected to Cloud PostgreSQL at {}!", targetDatabaseHost);
+            }
+
+            lastConnectionError = null;
+            return ds;
         } catch (Exception e) {
-            log.error("Failed to configure Cloud PostgreSQL DataSource from URI: {}", e.getMessage(), e);
+            String msg = (e.getMessage() != null && !e.getMessage().isBlank()) ? e.getMessage() : e.getClass().getSimpleName();
+            lastConnectionError = msg;
+            log.error("Failed to connect to Cloud PostgreSQL: {}", msg, e);
             return null;
         }
     }
@@ -200,13 +251,23 @@ public class DatabaseConfig {
             if (defaultUsername != null && !defaultUsername.isBlank()) config.setUsername(defaultUsername);
             if (defaultPassword != null && !defaultPassword.isBlank()) config.setPassword(defaultPassword);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(20);
-            config.setMinimumIdle(5);
-            config.setConnectionTimeout(15000);
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(1);
+            config.setConnectionTimeout(30000);
+            config.setInitializationFailTimeout(30000);
             config.setLeakDetectionThreshold(15000);
-            return new HikariDataSource(config);
+
+            HikariDataSource ds = new HikariDataSource(config);
+            try (java.sql.Connection conn = ds.getConnection()) {
+                log.info("Successfully connected to Cloud PostgreSQL via JDBC URL!");
+            }
+
+            lastConnectionError = null;
+            return ds;
         } catch (Exception e) {
-            log.error("Failed to configure JDBC PostgreSQL DataSource: {}", e.getMessage());
+            String msg = (e.getMessage() != null && !e.getMessage().isBlank()) ? e.getMessage() : e.getClass().getSimpleName();
+            lastConnectionError = msg;
+            log.error("Failed to configure JDBC PostgreSQL DataSource: {}", msg, e);
             return null;
         }
     }
