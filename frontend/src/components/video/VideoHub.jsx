@@ -38,7 +38,7 @@ export default function VideoHub({
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
-  const isAdmin = currentUser?.role === 'ROLE_ADMIN';
+  const isAdmin = currentUser && (currentUser.role === 'ROLE_ADMIN' || currentUser.role === 'ADMIN');
 
   // Category & search filtering
   const filteredVideos = videos.filter((video) => {
@@ -92,19 +92,23 @@ export default function VideoHub({
             Master Engineering, AI & Design Through High-Definition Video
           </h1>
           <p className="video-hero-subtitle">
-            Watch full courses, curated YouTube playlists, system design deep-dives, and upload your own study videos with zero buffering.
+            {isAdmin
+              ? 'Admin Studio Mode: Upload courses, add curated YouTube playlists, and publish high-definition video lessons.'
+              : 'Watch full courses, curated YouTube playlists, and system design deep-dives with zero buffering.'}
           </p>
         </div>
 
-        <div className="video-hero-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() => setIsUploadOpen(true)}
-          >
-            <Plus size={16} />
-            <span>Add Video / Playlist</span>
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="video-hero-actions">
+            <button
+              className="btn btn-primary"
+              onClick={() => setIsUploadOpen(true)}
+            >
+              <Plus size={16} />
+              <span>Add Video / Playlist</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Video Filter & Search Bar */}
@@ -234,12 +238,14 @@ export default function VideoHub({
         </div>
       )}
 
-      {/* Upload Modal */}
-      <VideoUploadModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onVideoAdded={handleVideoAdded}
-      />
+      {/* Upload Modal (Only accessible and rendered for Admin) */}
+      {isAdmin && (
+        <VideoUploadModal
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onVideoAdded={handleVideoAdded}
+        />
+      )}
     </div>
   );
 }

@@ -50,7 +50,11 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api/health", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/documents/**").permitAll()
-                        .requestMatchers("/api/videos/**").permitAll()
+                        // Video Hub: Public viewing & liking; Uploading/Deleting restricted strictly to Admin
+                        .requestMatchers(HttpMethod.GET, "/api/videos/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/videos/*/view", "/api/videos/*/like").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/videos/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/videos/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
                         .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
