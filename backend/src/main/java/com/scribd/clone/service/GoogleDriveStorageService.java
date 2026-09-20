@@ -82,6 +82,28 @@ public class GoogleDriveStorageService {
             String resolvedClientSecret = resolveValue(clientSecret, "GOOGLE_DRIVE_CLIENT_SECRET");
             String resolvedRefreshToken = resolveValue(refreshToken, "GOOGLE_DRIVE_REFRESH_TOKEN");
 
+            // Check if google-oauth-credentials.json exists
+            if (resolvedClientId == null || resolvedClientSecret == null || resolvedRefreshToken == null) {
+                try {
+                    InputStream oauthJson = resolveOAuthJsonStream();
+                    if (oauthJson != null) {
+                        com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseReader(
+                                new java.io.InputStreamReader(oauthJson, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+                        if (obj.has("client_id") && obj.has("client_secret") && obj.has("refresh_token")) {
+                            resolvedClientId = obj.get("client_id").getAsString();
+                            resolvedClientSecret = obj.get("client_secret").getAsString();
+                            resolvedRefreshToken = obj.get("refresh_token").getAsString();
+                            if (obj.has("folder_id") && !obj.get("folder_id").getAsString().isBlank()) {
+                                this.folderId = obj.get("folder_id").getAsString();
+                            }
+                            log.info("Loaded Google Drive OAuth2 credentials from google-oauth-credentials.json.");
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Could not read google-oauth-credentials.json: {}", ex.getMessage());
+                }
+            }
+
             if (resolvedClientId != null && resolvedClientSecret != null && resolvedRefreshToken != null
                     && !resolvedClientId.isBlank() && !resolvedClientSecret.isBlank() && !resolvedRefreshToken.isBlank()) {
                 credentials = com.google.auth.oauth2.UserCredentials.newBuilder()
@@ -94,7 +116,7 @@ public class GoogleDriveStorageService {
                 // 2. Service Account JSON fallback
                 InputStream credentialsStream = resolveCredentialsStream();
                 if (credentialsStream == null) {
-                    log.warn("Google Drive credentials not found at: {}. Google Drive storage will be unavailable.", credentialsPath);
+                    log.warn("Google Drive credentials not found. Google Drive storage will be unavailable.");
                     return;
                 }
 
@@ -181,6 +203,33 @@ public class GoogleDriveStorageService {
             }
         } catch (IOException e) {
             log.warn("Error opening Google credentials stream: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private InputStream resolveOAuthJsonStream() {
+        try {
+            Resource res = resourceLoader.getResource("classpath:google-oauth-credentials.json");
+            if (res.exists()) {
+                return res.getInputStream();
+            }
+
+            Path p1 = Paths.get("google-oauth-credentials.json");
+            if (Files.exists(p1)) {
+                return Files.newInputStream(p1);
+            }
+
+            Path p2 = Paths.get("backend/src/main/resources/google-oauth-credentials.json");
+            if (Files.exists(p2)) {
+                return Files.newInputStream(p2);
+            }
+
+            Path p3 = Paths.get("src/main/resources/google-oauth-credentials.json");
+            if (Files.exists(p3)) {
+                return Files.newInputStream(p3);
+            }
+        } catch (Exception e) {
+            log.warn("Could not resolve google-oauth-credentials.json stream: {}", e.getMessage());
         }
         return null;
     }

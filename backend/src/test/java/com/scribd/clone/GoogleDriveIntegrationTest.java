@@ -54,4 +54,35 @@ public class GoogleDriveIntegrationTest {
         boolean deleted = googleDriveStorageService.deleteFile(fileId);
         Assertions.assertTrue(deleted, "Test file should be deleted successfully");
     }
+
+    @Test
+    public void uploadAllCatalogBooksToGoogleDrive() throws Exception {
+        Assumptions.assumeTrue(googleDriveStorageService != null && googleDriveStorageService.isAvailable(),
+                "Google Drive storage service is not available, skipping upload.");
+
+        org.springframework.core.io.support.PathMatchingResourcePatternResolver resolver =
+                new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+        org.springframework.core.io.Resource[] resources = resolver.getResources("classpath*:books/*.pdf");
+        log.info("Found {} books to sync with Google Drive...", resources.length);
+
+        int uploadedCount = 0;
+        for (org.springframework.core.io.Resource res : resources) {
+            String filename = res.getFilename();
+            if (filename == null || !filename.toLowerCase().endsWith(".pdf")) continue;
+
+            String existingId = googleDriveStorageService.findFileIdByName(filename);
+            if (existingId != null) {
+                log.info("Book '{}' already exists in Google Drive (ID: {}).", filename, existingId);
+                continue;
+            }
+
+            try (InputStream in = res.getInputStream()) {
+                byte[] bytes = in.readAllBytes();
+                String fileId = googleDriveStorageService.uploadBytes(filename, bytes, "application/pdf");
+                log.info("Successfully uploaded book '{}' to Google Drive! (ID: {})", filename, fileId);
+                uploadedCount++;
+            }
+        }
+        log.info("Completed Google Drive sync! Total new books uploaded: {}", uploadedCount);
+    }
 }
