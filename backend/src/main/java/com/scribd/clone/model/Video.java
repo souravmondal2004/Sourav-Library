@@ -76,6 +76,9 @@ public class Video {
     public String getVideoUrl() { return videoUrl; }
     public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
 
+    public String getYoutubeUrl() { return videoUrl; }
+    public void setYoutubeUrl(String youtubeUrl) { this.videoUrl = youtubeUrl; }
+
     public String getYoutubeId() { return youtubeId; }
     public void setYoutubeId(String youtubeId) { this.youtubeId = youtubeId; }
 

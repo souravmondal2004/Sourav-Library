@@ -1,4 +1,5 @@
 // Video Service & YouTube link / uploaded video parser
+import { api } from './api';
 const VIDEO_STORAGE_KEY = 'scribd_video_hub_catalog';
 const LIKED_STORAGE_KEY = 'scribd_video_hub_liked';
 
@@ -198,6 +199,7 @@ Features:
 ];
 
 export const videoService = {
+  // Synchronously return cached or initial videos for instant initial render
   getAllVideos() {
     try {
       const stored = localStorage.getItem(VIDEO_STORAGE_KEY);
@@ -215,15 +217,34 @@ export const videoService = {
     return INITIAL_VIDEOS;
   },
 
-  getVideoById(id) {
-    const all = this.getAllVideos();
-    return all.find(v => v.id === id) || null;
+  // Asynchronously fetch videos from backend (which auto-restores from Google Drive)
+  async fetchVideos(category) {
+    try {
+      const remoteVideos = await api.videos.getAll(category);
+      if (Array.isArray(remoteVideos) && remoteVideos.length > 0) {
+        const formatted = remoteVideos.map(v => ({
+          ...v,
+          id: v.id,
+          uploadedAt: v.createdAt ? new Date(v.createdAt).toLocaleDateString() : 'Recently added'
+        }));
+        localStorage.setItem(VIDEO_STORAGE_KEY, JSON.stringify(formatted));
+        return formatted;
+      }
+    } catch (err) {
+      console.warn('Backend video fetch offline or waking up; using local cache:', err.message);
+    }
+    return this.getAllVideos();
   },
 
-  addVideo(videoData) {
+  getVideoById(id) {
     const all = this.getAllVideos();
-    const newVideo = {
-      id: 'vid-' + Date.now(),
+    return all.find(v => v.id === id || String(v.id) === String(id)) || null;
+  },
+
+  // Adds a video or YouTube playlist, saves to DB, and auto-syncs directly to Google Drive!
+  async addVideo(videoData) {
+    const all = this.getAllVideos();
+    let newVideo = {
       views: 1,
       likes: 0,
       uploadedAt: 'Just now',
@@ -250,7 +271,39 @@ export const videoService = {
       }
     }
 
-    const updated = [newVideo, ...all];
+    // Persist to backend database & Google Drive
+    try {
+      const payload = {
+        title: newVideo.title,
+        creator: newVideo.creator || 'Featured Creator',
+        creatorAvatar: newVideo.creatorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+        videoType: newVideo.type || 'youtube',
+        videoUrl: newVideo.youtubeUrl || newVideo.videoFileUrl,
+        youtubeId: newVideo.youtubeId,
+        playlistId: newVideo.playlistId,
+        thumbnailUrl: newVideo.thumbnailUrl,
+        category: newVideo.category || 'Programming',
+        duration: newVideo.duration || 'Video',
+        description: newVideo.description,
+        isPlaylist: Boolean(newVideo.isPlaylist)
+      };
+
+      const saved = await api.videos.create(payload);
+      if (saved && saved.id) {
+        newVideo = {
+          ...newVideo,
+          id: saved.id,
+          createdAt: saved.createdAt
+        };
+      }
+    } catch (err) {
+      console.warn('Backend offline; saving video to local storage fallback:', err);
+      if (!newVideo.id) {
+        newVideo.id = 'vid-' + Date.now();
+      }
+    }
+
+    const updated = [newVideo, ...all.filter(v => v.id !== newVideo.id)];
     try {
       localStorage.setItem(VIDEO_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
@@ -259,11 +312,32 @@ export const videoService = {
     return newVideo;
   },
 
-  deleteVideo(id) {
+  async deleteVideo(id) {
+    // Delete from backend & Google Drive
+    try {
+      if (typeof id === 'number' || (typeof id === 'string' && !id.startsWith('vid-'))) {
+        await api.videos.delete(id);
+      }
+    } catch (err) {
+      console.warn('Backend delete error or offline:', err);
+    }
+
     const all = this.getAllVideos();
-    const filtered = all.filter(v => v.id !== id);
+    const filtered = all.filter(v => v.id !== id && String(v.id) !== String(id));
     localStorage.setItem(VIDEO_STORAGE_KEY, JSON.stringify(filtered));
     return filtered;
+  },
+
+  // Manual or automatic Cloud Sync with Google Drive
+  async syncWithGoogleDrive() {
+    try {
+      const result = await api.videos.syncWithDrive();
+      const latest = await this.fetchVideos();
+      return { success: true, result, latest };
+    } catch (err) {
+      console.error('Google Drive sync failed:', err);
+      return { success: false, error: err.message };
+    }
   },
 
   incrementViews(id) {

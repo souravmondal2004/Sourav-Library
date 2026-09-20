@@ -84,6 +84,7 @@ public class FileStorageService {
         }
 
         ensureDocumentContentsTableExists();
+        syncLocalFilesToGoogleDrive();
     }
 
     public synchronized void ensureDocumentContentsTableExists() {
@@ -138,7 +139,7 @@ public class FileStorageService {
 
     /**
      * Stores an uploaded PDF file directly to Google Drive Cloud Storage (5 TB)
-     * avoiding filling up local disk space, with resilient local fallback.
+     * while also maintaining a fast local cache for thumbnail/page processing.
      */
     public String storeDocument(MultipartFile file) throws IOException {
         String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
@@ -150,18 +151,7 @@ public class FileStorageService {
 
         String storedFileName = UUID.randomUUID().toString() + extension;
 
-        // 1. Primary: Upload directly to Google Drive Cloud Storage (Zero local disk usage)
-        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
-            try (InputStream in = file.getInputStream()) {
-                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), file.getSize());
-                log.info("Uploaded document '{}' directly to Google Drive Cloud Storage.", storedFileName);
-                return storedFileName;
-            } catch (Exception ex) {
-                log.error("Google Drive upload failed for '{}', falling back to local storage: {}", storedFileName, ex.getMessage());
-            }
-        }
-
-        // 2. Fallback: Local disk cache and DB
+        // 1. Local cache on disk and DB (ensures instant page calculation and thumbnails)
         Files.createDirectories(this.documentsPath);
         Path targetLocation = this.documentsPath.resolve(storedFileName);
         try (InputStream in = file.getInputStream()) {
@@ -169,11 +159,21 @@ public class FileStorageService {
         }
         persistFileToDatabase(storedFileName, targetLocation, file.getContentType());
 
+        // 2. Primary Cloud Storage: Stream directly to Google Drive
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try (InputStream in = Files.newInputStream(targetLocation)) {
+                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), Files.size(targetLocation));
+                log.info("Uploaded document '{}' directly to Google Drive Cloud Storage.", storedFileName);
+            } catch (Exception ex) {
+                log.error("Google Drive upload failed for '{}', using local cache: {}", storedFileName, ex.getMessage());
+            }
+        }
+
         return storedFileName;
     }
 
     /**
-     * Stores an uploaded cover image directly to Google Drive Cloud Storage.
+     * Stores an uploaded cover image to Google Drive Cloud Storage and local cache.
      */
     public String storeCover(MultipartFile file) throws IOException {
         String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
@@ -185,18 +185,7 @@ public class FileStorageService {
 
         String storedFileName = "cover_" + UUID.randomUUID().toString() + extension;
 
-        // 1. Primary: Google Drive Cloud Storage
-        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
-            try (InputStream in = file.getInputStream()) {
-                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), file.getSize());
-                log.info("Uploaded cover '{}' directly to Google Drive Cloud Storage.", storedFileName);
-                return storedFileName;
-            } catch (Exception ex) {
-                log.error("Google Drive cover upload failed for '{}', falling back: {}", storedFileName, ex.getMessage());
-            }
-        }
-
-        // 2. Fallback: Local disk
+        // 1. Local disk cache
         Files.createDirectories(this.coversPath);
         Path targetLocation = this.coversPath.resolve(storedFileName);
         try (InputStream in = file.getInputStream()) {
@@ -204,7 +193,53 @@ public class FileStorageService {
         }
         persistFileToDatabase(storedFileName, targetLocation, file.getContentType());
 
+        // 2. Primary Cloud: Google Drive Cloud Storage
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try (InputStream in = Files.newInputStream(targetLocation)) {
+                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), Files.size(targetLocation));
+                log.info("Uploaded cover '{}' directly to Google Drive Cloud Storage.", storedFileName);
+            } catch (Exception ex) {
+                log.error("Google Drive cover upload failed for '{}': {}", storedFileName, ex.getMessage());
+            }
+        }
+
         return storedFileName;
+    }
+
+    /**
+     * Background sync: ensures all locally uploaded PDFs are archived in Google Drive.
+     */
+    public void syncLocalFilesToGoogleDrive() {
+        if (googleDriveStorageService == null || !googleDriveStorageService.isAvailable()) return;
+        Thread syncThread = new Thread(() -> {
+            try {
+                if (Files.exists(this.documentsPath)) {
+                    try (var stream = Files.list(this.documentsPath)) {
+                        stream.filter(p -> p.toString().toLowerCase().endsWith(".pdf")).forEach(pdfPath -> {
+                            try {
+                                String fileName = pdfPath.getFileName().toString();
+                                String existingId = googleDriveStorageService.findFileIdByName(fileName);
+                                if (existingId == null) {
+                                    long size = Files.size(pdfPath);
+                                    if (size > 0) {
+                                        try (InputStream is = Files.newInputStream(pdfPath)) {
+                                            googleDriveStorageService.uploadFile(fileName, is, "application/pdf", size);
+                                            log.info("Auto-synced local PDF '{}' to Google Drive ({} bytes)", fileName, size);
+                                        }
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.warn("Failed to auto-sync {} to Google Drive: {}", pdfPath, e.getMessage());
+                            }
+                        });
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Error running local-to-drive PDF sync: {}", ex.getMessage());
+            }
+        }, "drive-pdf-sync");
+        syncThread.setDaemon(true);
+        syncThread.start();
     }
 
     /**

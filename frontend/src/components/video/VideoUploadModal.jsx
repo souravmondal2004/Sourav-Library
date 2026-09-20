@@ -69,7 +69,7 @@ export default function VideoUploadModal({ isOpen, onClose, onVideoAdded }) {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
       alert('Please provide a video title');
@@ -78,52 +78,57 @@ export default function VideoUploadModal({ isOpen, onClose, onVideoAdded }) {
 
     setIsSubmitting(true);
 
-    if (activeTab === 'youtube') {
-      if (!parsedPreview) {
-        alert('Please enter a valid YouTube video or playlist link');
+    try {
+      if (activeTab === 'youtube') {
+        if (!parsedPreview) {
+          alert('Please enter a valid YouTube video or playlist link');
+          setIsSubmitting(false);
+          return;
+        }
+
+        const newVideo = {
+          title: title.trim(),
+          creator: creator.trim() || 'Featured Creator',
+          creatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+          type: parsedPreview.playlistId ? 'youtube_playlist' : 'youtube',
+          youtubeUrl: youtubeUrl.trim(),
+          youtubeId: parsedPreview.videoId || 'playlist',
+          playlistId: parsedPreview.playlistId || null,
+          thumbnailUrl: parsedPreview.thumbnailUrl,
+          category,
+          duration: parsedPreview.playlistId ? 'Playlist Collection' : 'Video Tutorial',
+          description: description.trim() || 'Uploaded video lesson.'
+        };
+
+        await onVideoAdded(newVideo);
         setIsSubmitting(false);
-        return;
-      }
+        onClose();
+      } else {
+        if (!videoFile && !filePreviewUrl) {
+          alert('Please select a video file to upload');
+          setIsSubmitting(false);
+          return;
+        }
 
-      const newVideo = {
-        title: title.trim(),
-        creator: creator.trim() || 'Featured Creator',
-        creatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
-        type: parsedPreview.playlistId ? 'youtube_playlist' : 'youtube',
-        youtubeUrl: youtubeUrl.trim(),
-        youtubeId: parsedPreview.videoId || 'playlist',
-        playlistId: parsedPreview.playlistId || null,
-        thumbnailUrl: parsedPreview.thumbnailUrl,
-        category,
-        duration: parsedPreview.playlistId ? 'Playlist Collection' : 'Video Tutorial',
-        description: description.trim() || 'Uploaded video lesson.'
-      };
+        const newVideo = {
+          title: title.trim(),
+          creator: creator.trim() || 'Admin Upload',
+          creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
+          type: 'direct_upload',
+          videoFileUrl: filePreviewUrl,
+          thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
+          category,
+          duration: 'Uploaded Video',
+          description: description.trim() || 'Directly uploaded media file.'
+        };
 
-      onVideoAdded(newVideo);
-      setIsSubmitting(false);
-      onClose();
-    } else {
-      if (!videoFile && !filePreviewUrl) {
-        alert('Please select a video file to upload');
+        await onVideoAdded(newVideo);
         setIsSubmitting(false);
-        return;
+        onClose();
       }
-
-      const newVideo = {
-        title: title.trim(),
-        creator: creator.trim() || 'Admin Upload',
-        creatorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
-        type: 'direct_upload',
-        videoFileUrl: filePreviewUrl,
-        thumbnailUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80',
-        category,
-        duration: 'Uploaded Video',
-        description: description.trim() || 'Directly uploaded media file.'
-      };
-
-      onVideoAdded(newVideo);
+    } catch (err) {
+      console.error('Failed to submit video:', err);
       setIsSubmitting(false);
-      onClose();
     }
   };
 

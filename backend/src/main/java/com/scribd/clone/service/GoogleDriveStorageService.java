@@ -81,6 +81,10 @@ public class GoogleDriveStorageService {
             String resolvedClientId = resolveValue(clientId, "GOOGLE_DRIVE_CLIENT_ID");
             String resolvedClientSecret = resolveValue(clientSecret, "GOOGLE_DRIVE_CLIENT_SECRET");
             String resolvedRefreshToken = resolveValue(refreshToken, "GOOGLE_DRIVE_REFRESH_TOKEN");
+            String resolvedFolderId = resolveValue(folderId, "GOOGLE_DRIVE_FOLDER_ID");
+            if (resolvedFolderId != null && !resolvedFolderId.isBlank()) {
+                this.folderId = resolvedFolderId;
+            }
 
             // Check if google-oauth-credentials.json exists
             if (resolvedClientId == null || resolvedClientSecret == null || resolvedRefreshToken == null) {
@@ -132,7 +136,7 @@ public class GoogleDriveStorageService {
             ).setApplicationName(APPLICATION_NAME).build();
 
             // Verify access to the designated folder
-            File targetFolder = driveClient.files().get(folderId)
+            File targetFolder = driveClient.files().get(this.folderId)
                     .setFields("id, name, mimeType, driveId, capabilities")
                     .setSupportsAllDrives(true)
                     .execute();
@@ -381,5 +385,98 @@ public class GoogleDriveStorageService {
             log.warn("Could not delete file '{}' from Google Drive: {}", fileNameOrId, e.getMessage());
         }
         return false;
+    }
+
+    /**
+     * Saves or overwrites an existing file in the Google Drive folder.
+     * Ideal for persistent JSON catalog backups (e.g. videos_catalog.json).
+     */
+    public String saveOrUpdateFile(String fileName, byte[] content, String contentType) throws IOException {
+        if (!isAvailable()) {
+            throw new IllegalStateException("Google Drive storage is unavailable.");
+        }
+
+        String existingFileId = findFileIdByName(fileName);
+        InputStreamContent mediaContent = new InputStreamContent(
+                contentType != null ? contentType : "application/octet-stream",
+                new ByteArrayInputStream(content)
+        );
+        mediaContent.setLength(content.length);
+
+        if (existingFileId != null) {
+            File patch = new File();
+            patch.setName(fileName);
+            File updated = driveClient.files().update(existingFileId, patch, mediaContent)
+                    .setFields("id, name, size")
+                    .setSupportsAllDrives(true)
+                    .execute();
+            fileNameToIdCache.put(fileName, updated.getId());
+            log.info("Overwrote '{}' in Google Drive folder (ID: {}, Size: {} bytes).", fileName, updated.getId(), content.length);
+            return updated.getId();
+        } else {
+            return uploadBytes(fileName, content, contentType);
+        }
+    }
+
+    /**
+     * Reads entire binary content of a file from Google Drive into a byte array.
+     */
+    public byte[] readFileBytes(String fileName) throws IOException {
+        try (InputStream is = downloadStream(fileName)) {
+            if (is == null) return null;
+            return is.readAllBytes();
+        }
+    }
+
+    /**
+     * Lists all files currently in the designated Google Drive folder.
+     */
+    public java.util.List<File> listAllFiles() {
+        if (!isAvailable()) return Collections.emptyList();
+        try {
+            String query = String.format("'%s' in parents and trashed = false", folderId);
+            FileList result = driveClient.files().list()
+                    .setQ(query)
+                    .setFields("files(id, name, size, mimeType, modifiedTime)")
+                    .setSupportsAllDrives(true)
+                    .setIncludeItemsFromAllDrives(true)
+                    .setPageSize(500)
+                    .execute();
+            return result.getFiles() != null ? result.getFiles() : Collections.emptyList();
+        } catch (Exception e) {
+            log.warn("Error listing files in Google Drive folder {}: {}", folderId, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    public String getFolderId() {
+        return this.folderId;
+    }
+
+    /**
+     * Comprehensive diagnostics for health and status endpoints.
+     */
+    public Map<String, Object> getStorageDetails() {
+        Map<String, Object> details = new java.util.LinkedHashMap<>();
+        details.put("enabled", enabled);
+        details.put("isReady", isReady);
+        details.put("folderId", folderId);
+        details.put("driveClientConnected", driveClient != null);
+
+        if (isAvailable()) {
+            try {
+                File folder = driveClient.files().get(folderId)
+                        .setFields("id, name, driveId")
+                        .setSupportsAllDrives(true)
+                        .execute();
+                details.put("folderName", folder.getName());
+                details.put("status", "ACTIVE_AND_SYNCHRONIZED");
+            } catch (Exception e) {
+                details.put("status", "CONNECTED_WITH_WARNING: " + e.getMessage());
+            }
+        } else {
+            details.put("status", enabled ? "DISCONNECTED_OR_MISSING_CREDENTIALS" : "DISABLED");
+        }
+        return details;
     }
 }

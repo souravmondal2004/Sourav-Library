@@ -21,6 +21,21 @@ public class GoogleDriveIntegrationTest {
     @Autowired(required = false)
     private GoogleDriveStorageService googleDriveStorageService;
 
+    @Autowired(required = false)
+    private com.scribd.clone.service.VideoSyncService videoSyncService;
+
+    @Test
+    public void testVideoSyncWithGoogleDrive() {
+        Assumptions.assumeTrue(videoSyncService != null && googleDriveStorageService != null && googleDriveStorageService.isAvailable(),
+                "Google Drive storage service is not available, skipping test.");
+
+        boolean synced = videoSyncService.syncVideosToGoogleDrive();
+        Assertions.assertTrue(synced, "Should successfully sync videos_catalog.json to Google Drive");
+
+        int restored = videoSyncService.restoreVideosFromGoogleDrive();
+        log.info("Test verified: successfully synced and checked {} videos in Google Drive.", restored);
+    }
+
     @Test
     public void testGoogleDriveConnectionAndUpload() throws Exception {
         Assumptions.assumeTrue(googleDriveStorageService != null && googleDriveStorageService.isAvailable(),

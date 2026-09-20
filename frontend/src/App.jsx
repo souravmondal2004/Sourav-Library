@@ -140,12 +140,13 @@ export default function App() {
         docsPromise = api.documents.getAll(0, 100);
       }
 
-      // 2. Fetch categories, featured documents, catalog, and bookmarks concurrently
-      const [catsRes, featuredRes, docsRes, bookmarksRes] = await Promise.allSettled([
+      // 2. Fetch categories, featured documents, catalog, bookmarks, and videos concurrently
+      const [catsRes, featuredRes, docsRes, bookmarksRes, videosRes] = await Promise.allSettled([
         api.categories.getAll(),
         api.documents.getFeatured(),
         docsPromise,
-        getAuthToken() ? api.library.getBookmarks() : Promise.resolve(null)
+        getAuthToken() ? api.library.getBookmarks() : Promise.resolve(null),
+        videoService.fetchVideos()
       ]);
 
       if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value) && catsRes.value.length > 0) {
@@ -163,6 +164,10 @@ export default function App() {
       if (bookmarksRes.status === 'fulfilled' && Array.isArray(bookmarksRes.value)) {
         const ids = new Set(bookmarksRes.value.map((b) => b.id));
         setBookmarkedIds(ids);
+      }
+
+      if (videosRes.status === 'fulfilled' && Array.isArray(videosRes.value) && videosRes.value.length > 0) {
+        setVideos(videosRes.value);
       }
 
       setError(null);

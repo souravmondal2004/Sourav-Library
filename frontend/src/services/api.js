@@ -610,6 +610,31 @@ export const api = {
       request(`/user/library/bookmark/${documentId}/status`)
   },
 
+  // Video Hub & Google Drive Cloud Auto-Sync
+  videos: {
+    getAll: (category) => {
+      const qs = category && category !== 'All' ? `?category=${encodeURIComponent(category)}` : '';
+      return request(`/videos${qs}`);
+    },
+    getById: (id) => request(`/videos/${id}`),
+    create: (videoData) => request('/videos', {
+      method: 'POST',
+      body: videoData
+    }),
+    delete: (id) => request(`/videos/${id}`, {
+      method: 'DELETE'
+    }),
+    syncWithDrive: () => request('/videos/sync', {
+      method: 'POST'
+    }),
+    incrementView: (id) => request(`/videos/${id}/view`, {
+      method: 'POST'
+    }),
+    toggleLike: (id) => request(`/videos/${id}/like`, {
+      method: 'POST'
+    })
+  },
+
   // System Health & Server Connectivity
   system: {
     checkHealth: async () => {

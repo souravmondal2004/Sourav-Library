@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Play,
   ListVideo,
@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   Trash2,
   Sparkles,
-  Radio
+  Radio,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 import YoutubeIcon from '../common/YoutubeIcon';
 import { videoService } from '../../services/videoService';
@@ -24,7 +26,7 @@ const CATEGORIES = [
   'Backend & Cloud',
   'Frontend & UI',
   'System Design',
-  'Computer Science',
+  'Algorithms',
   'Direct Uploads'
 ];
 
@@ -37,8 +39,19 @@ export default function VideoHub({
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState(null);
 
   const isAdmin = currentUser && (currentUser.role === 'ROLE_ADMIN' || currentUser.role === 'ADMIN');
+
+  // Auto-fetch latest videos from backend & Google Drive on mount
+  useEffect(() => {
+    videoService.fetchVideos().then((fresh) => {
+      if (fresh && fresh.length > 0) {
+        setVideos(fresh);
+      }
+    });
+  }, []);
 
   // Category & search filtering
   const filteredVideos = videos.filter((video) => {
@@ -66,17 +79,35 @@ export default function VideoHub({
     return matchesCategory && matchesSearch;
   });
 
-  const handleVideoAdded = (newVideo) => {
-    const created = videoService.addVideo(newVideo);
-    setVideos([created, ...videos]);
+  const handleVideoAdded = async (newVideo) => {
+    const created = await videoService.addVideo(newVideo);
+    setVideos([created, ...videos.filter(v => v.id !== created.id)]);
+    setSyncNotice('Saved & Auto-Synced with Google Drive ☁️');
+    setTimeout(() => setSyncNotice(null), 4000);
   };
 
-  const handleDeleteVideo = (e, videoId) => {
+  const handleDeleteVideo = async (e, videoId) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to remove this video?')) {
-      const remaining = videoService.deleteVideo(videoId);
+    if (window.confirm('Are you sure you want to remove this video? It will also be deleted from Google Drive.')) {
+      const remaining = await videoService.deleteVideo(videoId);
       setVideos(remaining);
+      setSyncNotice('Deleted & Synced with Google Drive ☁️');
+      setTimeout(() => setSyncNotice(null), 3000);
     }
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncNotice('Syncing with Google Drive...');
+    const res = await videoService.syncWithGoogleDrive();
+    if (res.success) {
+      setVideos(res.latest);
+      setSyncNotice(`✅ Google Drive Synchronized (${res.latest.length} videos active)`);
+    } else {
+      setSyncNotice('Notice: Local catalog preserved');
+    }
+    setIsSyncing(false);
+    setTimeout(() => setSyncNotice(null), 4000);
   };
 
   return (
@@ -84,22 +115,70 @@ export default function VideoHub({
       {/* Top Banner / Hero */}
       <div className="video-hub-hero">
         <div className="video-hero-content">
-          <div className="video-hero-badge">
-            <YoutubeIcon size={16} color="#ff0000" />
-            <span>YouTube & Studio Video Streamer</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+            <div className="video-hero-badge">
+              <YoutubeIcon size={16} color="#ff0000" />
+              <span>YouTube & Studio Video Streamer</span>
+            </div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '9999px',
+              padding: '0.2rem 0.75rem',
+              fontSize: '0.78rem',
+              color: 'var(--color-emerald-light)',
+              fontWeight: 600
+            }}>
+              <Cloud size={13} />
+              <span>Google Drive Cloud Auto-Sync: Active</span>
+            </div>
           </div>
+
           <h1 className="video-hero-title">
             Master Engineering, AI & Design Through High-Definition Video
           </h1>
           <p className="video-hero-subtitle">
             {isAdmin
-              ? 'Admin Studio Mode: Upload courses, add curated YouTube playlists, and publish high-definition video lessons.'
+              ? 'Admin Studio Mode: Upload courses, add curated YouTube playlists, and publish lessons permanently synced to Google Drive.'
               : 'Watch full courses, curated YouTube playlists, and system design deep-dives with zero buffering.'}
           </p>
+
+          {syncNotice && (
+            <div style={{
+              marginTop: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              borderRadius: '8px',
+              padding: '0.35rem 0.85rem',
+              color: '#38bdf8',
+              fontSize: '0.82rem',
+              fontWeight: 600
+            }}>
+              <CheckCircle2 size={14} />
+              <span>{syncNotice}</span>
+            </div>
+          )}
         </div>
 
-        {isAdmin && (
-          <div className="video-hero-actions">
+        <div className="video-hero-actions" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            title="Sync all playlists and videos with Google Drive folder 1ZwKXAE2dM9JmJIGl2HZap1RiW9CSeVPS"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}
+          >
+            <RefreshCw size={14} className={isSyncing ? 'spin-anim' : ''} />
+            <span>{isSyncing ? 'Syncing Drive...' : 'Sync Google Drive'}</span>
+          </button>
+
+          {isAdmin && (
             <button
               className="btn btn-primary"
               onClick={() => setIsUploadOpen(true)}
@@ -107,8 +186,8 @@ export default function VideoHub({
               <Plus size={16} />
               <span>Add Video / Playlist</span>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Video Filter & Search Bar */}

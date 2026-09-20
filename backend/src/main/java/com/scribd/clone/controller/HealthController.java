@@ -17,16 +17,26 @@ import java.util.Map;
 public class HealthController {
 
     private final DocumentRepository documentRepository;
+    private final com.scribd.clone.repository.VideoRepository videoRepository;
+    private final com.scribd.clone.service.GoogleDriveStorageService googleDriveStorageService;
 
-    public HealthController(DocumentRepository documentRepository) {
+    public HealthController(
+            DocumentRepository documentRepository,
+            com.scribd.clone.repository.VideoRepository videoRepository,
+            com.scribd.clone.service.GoogleDriveStorageService googleDriveStorageService
+    ) {
         this.documentRepository = documentRepository;
+        this.videoRepository = videoRepository;
+        this.googleDriveStorageService = googleDriveStorageService;
     }
 
     @GetMapping(value = {"/", "/api/health"})
     public ResponseEntity<?> healthCheck(@RequestHeader(value = HttpHeaders.ACCEPT, defaultValue = "") String acceptHeader) {
         long docCount = 0;
+        long videoCount = 0;
         try {
             docCount = documentRepository.count();
+            videoCount = videoRepository.count();
         } catch (Exception ignored) {}
 
         String dbType = DatabaseConfig.getActiveDatabaseType();
@@ -245,7 +255,12 @@ public class HealthController {
         diagnostics.put("lastError", lastError);
         response.put("databaseDiagnostics", diagnostics);
 
+        if (googleDriveStorageService != null) {
+            response.put("googleDriveStorage", googleDriveStorageService.getStorageDetails());
+        }
+
         response.put("documentsCount", docCount);
+        response.put("videosCount", videoCount);
         response.put("webAppUrl", "https://sourav-library.vercel.app");
 
         return ResponseEntity.ok(response);
