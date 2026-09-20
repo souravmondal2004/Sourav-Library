@@ -37,3 +37,9 @@ data/
 uploads/
 **/uploads/
 scratch/
+
+# Google Service Account Credentials
+*credentials*.json
+google-credentials.json
+backend/src/main/resources/google-credentials.json
+

@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -64,6 +65,9 @@ public class FileStorageService {
 
     @Autowired(required = false)
     private DocumentContentRepository documentContentRepository;
+
+    @Autowired(required = false)
+    private GoogleDriveStorageService googleDriveStorageService;
 
     private volatile boolean tableInitialized = false;
 
@@ -133,8 +137,8 @@ public class FileStorageService {
     }
 
     /**
-     * Stores an uploaded PDF file directly to disk via streaming (zero-heap allocation)
-     * and streams it to the persistent database table to survive container restarts.
+     * Stores an uploaded PDF file directly to Google Drive Cloud Storage (5 TB)
+     * avoiding filling up local disk space, with resilient local fallback.
      */
     public String storeDocument(MultipartFile file) throws IOException {
         String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
@@ -146,21 +150,30 @@ public class FileStorageService {
 
         String storedFileName = UUID.randomUUID().toString() + extension;
 
-        // 1. Stream directly to disk cache - never buffer the entire file into JVM byte[]
+        // 1. Primary: Upload directly to Google Drive Cloud Storage (Zero local disk usage)
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try (InputStream in = file.getInputStream()) {
+                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), file.getSize());
+                log.info("Uploaded document '{}' directly to Google Drive Cloud Storage.", storedFileName);
+                return storedFileName;
+            } catch (Exception ex) {
+                log.error("Google Drive upload failed for '{}', falling back to local storage: {}", storedFileName, ex.getMessage());
+            }
+        }
+
+        // 2. Fallback: Local disk cache and DB
         Files.createDirectories(this.documentsPath);
         Path targetLocation = this.documentsPath.resolve(storedFileName);
         try (InputStream in = file.getInputStream()) {
             Files.copy(in, targetLocation, StandardCopyOption.REPLACE_EXISTING);
         }
-
-        // 2. Stream directly from disk into database BLOB/bytea without loading into JVM heap
         persistFileToDatabase(storedFileName, targetLocation, file.getContentType());
 
         return storedFileName;
     }
 
     /**
-     * Stores an uploaded cover image directly to disk and database via streaming.
+     * Stores an uploaded cover image directly to Google Drive Cloud Storage.
      */
     public String storeCover(MultipartFile file) throws IOException {
         String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
@@ -172,14 +185,23 @@ public class FileStorageService {
 
         String storedFileName = "cover_" + UUID.randomUUID().toString() + extension;
 
-        // 1. Stream directly to disk
+        // 1. Primary: Google Drive Cloud Storage
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try (InputStream in = file.getInputStream()) {
+                googleDriveStorageService.uploadFile(storedFileName, in, file.getContentType(), file.getSize());
+                log.info("Uploaded cover '{}' directly to Google Drive Cloud Storage.", storedFileName);
+                return storedFileName;
+            } catch (Exception ex) {
+                log.error("Google Drive cover upload failed for '{}', falling back: {}", storedFileName, ex.getMessage());
+            }
+        }
+
+        // 2. Fallback: Local disk
         Files.createDirectories(this.coversPath);
         Path targetLocation = this.coversPath.resolve(storedFileName);
         try (InputStream in = file.getInputStream()) {
             Files.copy(in, targetLocation, StandardCopyOption.REPLACE_EXISTING);
         }
-
-        // 2. Stream to database
         persistFileToDatabase(storedFileName, targetLocation, file.getContentType());
 
         return storedFileName;
@@ -189,6 +211,16 @@ public class FileStorageService {
      * Stores direct binary content (e.g., initial generated seed PDFs).
      */
     public void storeDirectly(String fileName, byte[] bytes, String contentType) {
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                googleDriveStorageService.uploadBytes(fileName, bytes, contentType);
+                log.info("Stored direct file '{}' in Google Drive Cloud Storage.", fileName);
+                return;
+            } catch (Exception ex) {
+                log.warn("Could not store directly to Google Drive for {}: {}", fileName, ex.getMessage());
+            }
+        }
+
         try {
             Files.createDirectories(this.documentsPath);
             Path targetLocation = this.documentsPath.resolve(fileName);
@@ -332,6 +364,29 @@ public class FileStorageService {
         Path filePath = this.documentsPath.resolve(fileName).normalize();
         File file = filePath.toFile();
 
+        // 0. Primary: Stream directly from Google Drive Cloud Storage if available (Zero local disk usage)
+        final String lookupDocName = fileName;
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                InputStream driveStream = googleDriveStorageService.downloadStream(lookupDocName);
+                if (driveStream != null) {
+                    Long size = googleDriveStorageService.getFileSize(lookupDocName);
+                    return new InputStreamResource(driveStream) {
+                        @Override
+                        public String getFilename() {
+                            return lookupDocName;
+                        }
+                        @Override
+                        public long contentLength() {
+                            return size != null ? size : -1;
+                        }
+                    };
+                }
+            } catch (Exception e) {
+                log.warn("Could not load document '{}' from Google Drive: {}", lookupDocName, e.getMessage());
+            }
+        }
+
         // 1. If present on disk and readable, return directly
         // Ensure that a tiny fallback preview on disk does not mask a real multi-megabyte document
         boolean isPlaceholder = file.exists() && (
@@ -401,6 +456,29 @@ public class FileStorageService {
      * If missing on disk, restores it from the database.
      */
     public Resource loadCoverAsResource(String fileName) {
+        // 0. Primary: Stream directly from Google Drive Cloud Storage if available
+        final String lookupCoverName = fileName;
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                InputStream driveStream = googleDriveStorageService.downloadStream(lookupCoverName);
+                if (driveStream != null) {
+                    Long size = googleDriveStorageService.getFileSize(lookupCoverName);
+                    return new InputStreamResource(driveStream) {
+                        @Override
+                        public String getFilename() {
+                            return lookupCoverName;
+                        }
+                        @Override
+                        public long contentLength() {
+                            return size != null ? size : -1;
+                        }
+                    };
+                }
+            } catch (Exception e) {
+                log.warn("Could not load cover '{}' from Google Drive: {}", lookupCoverName, e.getMessage());
+            }
+        }
+
         Path filePath = this.coversPath.resolve(fileName).normalize();
         File file = filePath.toFile();
 
@@ -688,6 +766,11 @@ public class FileStorageService {
      * Deletes a stored document file both from disk and database.
      */
     public void deleteDocument(String fileName) {
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                googleDriveStorageService.deleteFile(fileName);
+            } catch (Exception ignored) {}
+        }
         try {
             Path filePath = this.documentsPath.resolve(fileName).normalize();
             Files.deleteIfExists(filePath);
@@ -704,6 +787,11 @@ public class FileStorageService {
      * Deletes a stored cover image both from disk and database.
      */
     public void deleteCover(String fileName) {
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                googleDriveStorageService.deleteFile(fileName);
+            } catch (Exception ignored) {}
+        }
         try {
             Path filePath = this.coversPath.resolve(fileName).normalize();
             Files.deleteIfExists(filePath);
