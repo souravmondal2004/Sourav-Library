@@ -47,6 +47,15 @@ public class GoogleDriveStorageService {
     @Value("${scribd.storage.google-drive.credentials-path:classpath:google-credentials.json}")
     private String credentialsPath;
 
+    @Value("${scribd.storage.google-drive.client-id:}")
+    private String clientId;
+
+    @Value("${scribd.storage.google-drive.client-secret:}")
+    private String clientSecret;
+
+    @Value("${scribd.storage.google-drive.refresh-token:}")
+    private String refreshToken;
+
     private final ResourceLoader resourceLoader;
     private Drive driveClient;
     private volatile boolean isReady = false;
@@ -66,14 +75,33 @@ public class GoogleDriveStorageService {
         }
 
         try {
-            InputStream credentialsStream = resolveCredentialsStream();
-            if (credentialsStream == null) {
-                log.warn("Google Drive credentials not found at: {}. Google Drive storage will be unavailable.", credentialsPath);
-                return;
-            }
+            GoogleCredentials credentials = null;
 
-            GoogleCredentials credentials = GoogleCredentials.fromStream(credentialsStream)
-                    .createScoped(Collections.singletonList(DriveScopes.DRIVE));
+            // 1. Primary for Personal @gmail.com accounts: OAuth 2.0 User Refresh Token
+            String resolvedClientId = resolveValue(clientId, "GOOGLE_DRIVE_CLIENT_ID");
+            String resolvedClientSecret = resolveValue(clientSecret, "GOOGLE_DRIVE_CLIENT_SECRET");
+            String resolvedRefreshToken = resolveValue(refreshToken, "GOOGLE_DRIVE_REFRESH_TOKEN");
+
+            if (resolvedClientId != null && resolvedClientSecret != null && resolvedRefreshToken != null
+                    && !resolvedClientId.isBlank() && !resolvedClientSecret.isBlank() && !resolvedRefreshToken.isBlank()) {
+                credentials = com.google.auth.oauth2.UserCredentials.newBuilder()
+                        .setClientId(resolvedClientId)
+                        .setClientSecret(resolvedClientSecret)
+                        .setRefreshToken(resolvedRefreshToken)
+                        .build();
+                log.info("Initializing Google Drive Cloud Storage via Personal Account OAuth 2.0 User Credentials (Personal @gmail.com storage quota).");
+            } else {
+                // 2. Service Account JSON fallback
+                InputStream credentialsStream = resolveCredentialsStream();
+                if (credentialsStream == null) {
+                    log.warn("Google Drive credentials not found at: {}. Google Drive storage will be unavailable.", credentialsPath);
+                    return;
+                }
+
+                credentials = GoogleCredentials.fromStream(credentialsStream)
+                        .createScoped(Collections.singletonList(DriveScopes.DRIVE));
+                log.info("Initializing Google Drive Cloud Storage via Service Account credentials.");
+            }
 
             this.driveClient = new Drive.Builder(
                     GoogleNetHttpTransport.newTrustedTransport(),
@@ -83,18 +111,30 @@ public class GoogleDriveStorageService {
 
             // Verify access to the designated folder
             File targetFolder = driveClient.files().get(folderId)
-                    .setFields("id, name, mimeType")
+                    .setFields("id, name, mimeType, driveId, capabilities")
                     .setSupportsAllDrives(true)
                     .execute();
 
             this.isReady = true;
-            log.info("Successfully connected to Google Drive Cloud Storage! Target Folder: '{}' (ID: {})",
-                    targetFolder.getName(), targetFolder.getId());
+            log.info("Successfully connected to Google Drive Cloud Storage! Target Folder: '{}' (ID: {}), driveId: {}, canAddChildren: {}",
+                    targetFolder.getName(), targetFolder.getId(), targetFolder.getDriveId(),
+                    targetFolder.getCapabilities() != null ? targetFolder.getCapabilities().getCanAddChildren() : "null");
 
         } catch (Exception e) {
             log.error("Failed to initialize Google Drive Cloud Storage: {}", e.getMessage(), e);
             this.isReady = false;
         }
+    }
+
+    private String resolveValue(String propertyValue, String envName) {
+        if (propertyValue != null && !propertyValue.isBlank()) {
+            return propertyValue.trim();
+        }
+        String envVal = System.getenv(envName);
+        if (envVal != null && !envVal.isBlank()) {
+            return envVal.trim();
+        }
+        return null;
     }
 
     private InputStream resolveCredentialsStream() {
