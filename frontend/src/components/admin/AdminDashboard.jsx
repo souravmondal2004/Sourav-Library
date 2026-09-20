@@ -203,7 +203,12 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     } catch (err) {
       let errorMsg = err.message || 'Failed to upload document';
       if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError') || errorMsg.includes('Load failed') || errorMsg.includes('not running')) {
-        errorMsg = 'Backend server is offline. Please ensure your backend is started by running "start-all.bat", then click Upload again.';
+        const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        if (isLocalhost) {
+          errorMsg = 'Backend server is offline on localhost. Please start the backend by running "start-all.bat", then click Upload again.';
+        } else {
+          errorMsg = 'Cloud backend server is currently waking up or deploying (~30s on Render). Please wait a moment and click Upload again.';
+        }
       }
       setMessage({ type: 'error', text: errorMsg });
     } finally {
