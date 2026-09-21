@@ -241,12 +241,11 @@ public class DocumentSyncService {
                     String existingId = googleDriveStorageService.findFileIdByName(filename);
                     if (existingId == null) {
                         try (InputStream in = res.getInputStream()) {
-                            byte[] bytes = in.readAllBytes();
-                            if (bytes.length > 0) {
-                                googleDriveStorageService.uploadBytes(filename, bytes, "application/pdf");
-                                log.info("Auto-archived bundled book '{}' to Google Drive ({} bytes)", filename, bytes.length);
-                                uploadedCount++;
-                            }
+                            long size = -1;
+                            try { size = res.contentLength(); } catch (Exception ignored) {}
+                            googleDriveStorageService.uploadFile(filename, in, "application/pdf", size);
+                            log.info("Auto-archived bundled book '{}' to Google Drive ({} bytes)", filename, size);
+                            uploadedCount++;
                         } catch (Exception ex) {
                             log.warn("Could not archive bundled book '{}' to Google Drive: {}", filename, ex.getMessage());
                         }

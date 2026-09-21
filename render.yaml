@@ -16,7 +16,7 @@ services:
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: JAVA_TOOL_OPTIONS
-        value: "-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=40.0"
+        value: "-XX:+UseSerialGC -Xms128m -Xmx256m -XX:MaxMetaspaceSize=140m -XX:CompressedClassSpaceSize=32m -Xss512k -Dfile.encoding=UTF-8"
       - key: RENDER_EXTERNAL_URL
         value: https://sourav-library.onrender.com
       - key: GOOGLE_DRIVE_CLIENT_ID

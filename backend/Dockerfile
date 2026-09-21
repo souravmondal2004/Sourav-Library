@@ -15,4 +15,4 @@ RUN mkdir -p /app/uploads/documents /app/uploads/covers /app/data
 
 EXPOSE 8080
 ENV SPRING_PROFILES_ACTIVE=dev
-ENTRYPOINT ["java", "-XX:+UseG1GC", "-XX:MaxRAMPercentage=75.0", "-XX:InitialRAMPercentage=40.0", "-XX:MinRAMPercentage=40.0", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms128m", "-Xmx256m", "-XX:MaxMetaspaceSize=140m", "-XX:CompressedClassSpaceSize=32m", "-Xss512k", "-Dfile.encoding=UTF-8", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]

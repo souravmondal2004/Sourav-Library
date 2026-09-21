@@ -276,6 +276,18 @@ public class FileStorageService {
         try {
             ensureDocumentContentsTableExists();
             long fileSize = Files.size(filePath);
+
+            // Memory protection for 512MB RAM environment:
+            // When H2 database is active or Google Drive is connected, avoid storing large binary files (>2MB)
+            // in the database table to prevent in-memory BLOB allocation that triggers Render OOM restarts.
+            String dbType = DatabaseConfig.getActiveDatabaseType();
+            if ("H2".equalsIgnoreCase(dbType) || (googleDriveStorageService != null && googleDriveStorageService.isAvailable())) {
+                if (fileSize > 2L * 1024 * 1024) {
+                    log.info("Skipping DB BLOB table insert for large file {} ({} bytes). Stored safely on disk and Google Drive.", fileName, fileSize);
+                    return;
+                }
+            }
+
             // Delete any existing record for this filename
             jdbcTemplate.update("DELETE FROM DOCUMENT_CONTENTS WHERE file_name = ?", fileName);
 
