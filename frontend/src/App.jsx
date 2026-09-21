@@ -8,12 +8,13 @@ import PdfReaderModal from './components/reader/PdfReaderModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 import UserLibrary from './components/library/UserLibrary';
 import AuthModal from './components/auth/AuthModal';
+import PdfUploadModal from './components/catalog/PdfUploadModal';
 import VideoHub from './components/video/VideoHub';
 import VideoPlayerView from './components/video/VideoPlayerView';
 import SouravAIChat from './components/ai/SouravAIChat';
 import { videoService } from './services/videoService';
 import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategories, getCachedFeatured } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2 } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
@@ -38,6 +39,9 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState('login');
   const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [isPdfUploadOpen, setIsPdfUploadOpen] = useState(false);
+  const [isDriveSyncing, setIsDriveSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState(null);
 
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
   const mobileSearchInputRef = useRef(null);
@@ -270,6 +274,65 @@ export default function App() {
 
   const primaryFeatured = featuredBooks.length > 0 ? featuredBooks[0] : books[0];
 
+  // PDF Upload Handler: prepend to catalog and trigger notification
+  const handlePdfUploaded = (uploadedDoc) => {
+    if (!uploadedDoc) return;
+    setBooks((prev) => [uploadedDoc, ...prev.filter((b) => b.id !== uploadedDoc.id)]);
+    setSyncNotice({
+      type: 'success',
+      message: `"${uploadedDoc.title}" uploaded & saved to Google Drive!`
+    });
+    setTimeout(() => setSyncNotice(null), 5000);
+    fetchData();
+  };
+
+  // PDF Delete Handler: confirm and delete from library & Drive
+  const handleDeleteBook = async (id, title) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${title || 'this publication'}"?\n\nThis will remove the file from your library and sync changes to Google Drive.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.documents.delete(id);
+      setBooks((prev) => prev.filter((b) => b.id !== id));
+      setFeaturedBooks((prev) => prev.filter((b) => b.id !== id));
+      setSyncNotice({
+        type: 'info',
+        message: `"${title}" has been deleted and synced with Google Drive.`
+      });
+      setTimeout(() => setSyncNotice(null), 5000);
+    } catch (err) {
+      console.error('Failed to delete book:', err);
+      alert('Could not delete document: ' + (err.message || 'Server error. Please verify connection.'));
+    }
+  };
+
+  // Manual Google Drive Sync for PDF catalog
+  const handleManualPdfDriveSync = async () => {
+    setIsDriveSyncing(true);
+    setSyncNotice({
+      type: 'loading',
+      message: 'Backing up and synchronizing PDF catalog with Google Drive...'
+    });
+    try {
+      const res = await api.documents.syncWithDrive();
+      setSyncNotice({
+        type: 'success',
+        message: res?.message || 'PDF library catalog successfully synced to Google Drive!'
+      });
+      fetchData();
+    } catch (err) {
+      setSyncNotice({
+        type: 'error',
+        message: 'Drive sync note: ' + (err.message || 'Offline or sync deferred.')
+      });
+    } finally {
+      setIsDriveSyncing(false);
+      setTimeout(() => setSyncNotice(null), 6000);
+    }
+  };
+
   return (
     <div className="app-root">
       {/* Top Navigation */}
@@ -376,6 +439,7 @@ export default function App() {
               onReadBook={handleOpenReader}
               onToggleBookmark={handleToggleBookmark}
               isBookmarked={primaryFeatured ? bookmarkedIds.has(primaryFeatured.id) : false}
+              onUploadPdf={() => setIsPdfUploadOpen(true)}
             />
           )}
 
@@ -404,7 +468,7 @@ export default function App() {
 
           {/* Catalog Section */}
           <div className="container" style={{ marginTop: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.85rem' }}>
               <div>
                 <h2 style={{ fontSize: '1.4rem' }}>
                   {searchQuery
@@ -413,7 +477,7 @@ export default function App() {
                     ? categories.find((c) => c.id === selectedCategory)?.name || 'Category Books'
                     : 'Popular & Trending Reads'}
                 </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <span>{books.length} publications available to read immediately</span>
                   {isBackgroundSyncing && (
                     <span style={{
@@ -433,16 +497,57 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Admin quick jump */}
-              {currentUser?.role === 'ROLE_ADMIN' && (
+              {/* Action Buttons: Upload PDF + Cloud Sync + Admin */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setIsPdfUploadOpen(true)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.84rem',
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  <Upload size={14} strokeWidth={2.5} /> + Upload PDF / Book
+                </button>
+
                 <button
                   className="btn btn-outline"
-                  onClick={() => setCurrentView('admin')}
-                  style={{ fontSize: '0.82rem' }}
+                  onClick={handleManualPdfDriveSync}
+                  disabled={isDriveSyncing}
+                  title="Backup & sync all PDF documents metadata to Google Drive cloud"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: '0.82rem',
+                    padding: '0.5rem 0.9rem',
+                    borderColor: 'rgba(56, 189, 248, 0.35)',
+                    color: '#38bdf8',
+                    background: 'rgba(56, 189, 248, 0.08)'
+                  }}
                 >
-                  <Shield size={14} /> Upload More in Admin Channel
+                  <Cloud size={14} className={isDriveSyncing ? 'animate-spin' : ''} />
+                  {isDriveSyncing ? 'Syncing...' : 'Sync with Drive'}
                 </button>
-              )}
+
+                {currentUser?.role === 'ROLE_ADMIN' && (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => setCurrentView('admin')}
+                    style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                  >
+                    <Shield size={14} /> Admin Studio
+                  </button>
+                )}
+              </div>
             </div>
 
             {loading ? (
@@ -478,6 +583,7 @@ export default function App() {
                     onRead={handleOpenReader}
                     onToggleBookmark={handleToggleBookmark}
                     isBookmarked={bookmarkedIds.has(book.id)}
+                    onDelete={handleDeleteBook}
                   />
                 ))}
               </div>
@@ -519,6 +625,51 @@ export default function App() {
             fetchData();
           }}
         />
+      )}
+
+      {/* PDF Upload Modal */}
+      <PdfUploadModal
+        isOpen={isPdfUploadOpen}
+        onClose={() => setIsPdfUploadOpen(false)}
+        categories={categories}
+        onDocumentUploaded={handlePdfUploaded}
+      />
+
+      {/* Cloud Drive Sync Notification Toast */}
+      {syncNotice && (
+        <div style={{
+          position: 'fixed',
+          bottom: '5.2rem',
+          right: '1.5rem',
+          zIndex: 9999,
+          background: syncNotice.type === 'error'
+            ? 'rgba(239, 68, 68, 0.95)'
+            : syncNotice.type === 'info'
+            ? 'rgba(59, 130, 246, 0.95)'
+            : 'rgba(16, 185, 129, 0.95)',
+          color: '#ffffff',
+          padding: '0.75rem 1.25rem',
+          borderRadius: 10,
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: '0.88rem',
+          fontWeight: 600,
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          {syncNotice.type === 'loading' ? (
+            <RefreshCw size={16} className="animate-spin" />
+          ) : syncNotice.type === 'error' ? (
+            <AlertCircle size={16} />
+          ) : syncNotice.type === 'info' ? (
+            <Cloud size={16} />
+          ) : (
+            <CheckCircle2 size={16} />
+          )}
+          <span>{syncNotice.message}</span>
+        </div>
       )}
 
       {/* Footer */}

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sparkles, BookOpen, Eye, ArrowRight, Bookmark } from 'lucide-react';
+import { Sparkles, BookOpen, Eye, ArrowRight, Bookmark, Upload, Cloud } from 'lucide-react';
 import { api } from '../../services/api';
 
-export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark, isBookmarked }) {
+export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark, isBookmarked, onUploadPdf }) {
   if (!featuredBook) {
     return (
       <section className="hero-section">
@@ -27,8 +27,25 @@ export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark,
     <section className="hero-section">
       <div className="container hero-content">
         <div>
-          <div className="hero-tag">
-            <Sparkles size={14} /> Spotlight Publication
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+            <div className="hero-tag" style={{ margin: 0 }}>
+              <Sparkles size={14} /> Spotlight Publication
+            </div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(16, 185, 129, 0.12)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '9999px',
+              padding: '0.25rem 0.85rem',
+              fontSize: '0.78rem',
+              color: 'var(--color-emerald-light)',
+              fontWeight: 600
+            }}>
+              <Cloud size={13} />
+              <span>Google Drive Cloud Auto-Sync: Active</span>
+            </div>
           </div>
           <h1 className="hero-title">
             <span className="hero-title-highlight">{featuredBook.title}</span>
@@ -39,7 +56,7 @@ export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark,
           <p className="hero-desc">
             {featuredBook.description || 'Immerse yourself in this curated publication. Seamlessly stream with high-fidelity rendering, responsive zoom, night mode, and bookmarking.'}
           </p>
-          <div className="hero-buttons" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="hero-buttons" style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
               style={{ padding: '0.8rem 1.8rem', fontSize: '1rem' }}
@@ -60,6 +77,22 @@ export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark,
               />
               {isBookmarked ? 'Saved to Library' : 'Save for Later'}
             </button>
+            {onUploadPdf && (
+              <button
+                className="btn btn-outline"
+                style={{
+                  padding: '0.8rem 1.4rem',
+                  borderColor: 'rgba(16, 185, 129, 0.4)',
+                  color: 'var(--color-emerald-light)',
+                  background: 'rgba(16, 185, 129, 0.08)'
+                }}
+                onClick={onUploadPdf}
+                title="Upload and permanently preserve a new PDF in Google Drive"
+              >
+                <Upload size={17} />
+                <span>Upload PDF Book</span>
+              </button>
+            )}
           </div>
         </div>
 

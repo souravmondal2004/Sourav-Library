@@ -35,6 +35,7 @@ public class AdminService {
     private final ReadingHistoryRepository readingHistoryRepository;
     private final BookmarkRepository bookmarkRepository;
     private final FileStorageService fileStorageService;
+    private final DocumentSyncService documentSyncService;
 
     public AdminService(
             DocumentRepository documentRepository,
@@ -42,7 +43,8 @@ public class AdminService {
             UserRepository userRepository,
             ReadingHistoryRepository readingHistoryRepository,
             BookmarkRepository bookmarkRepository,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            DocumentSyncService documentSyncService
     ) {
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
@@ -50,6 +52,7 @@ public class AdminService {
         this.readingHistoryRepository = readingHistoryRepository;
         this.bookmarkRepository = bookmarkRepository;
         this.fileStorageService = fileStorageService;
+        this.documentSyncService = documentSyncService;
     }
 
     public Page<DocumentResponseDto> getAdminDocuments(String query, Long categoryId, int page, int size) {
@@ -99,12 +102,19 @@ public class AdminService {
         }
 
         // 4. Persist metadata entity inside transaction
-        return saveUploadedDocumentMetadata(
+        DocumentResponseDto response = saveUploadedDocumentMetadata(
                 title, author, description, categoryId, calculatedPages,
                 language, publishedYear, isFeatured, isPublished, username,
                 storedFileName, storedCoverName, pdfFile.getOriginalFilename(),
                 pdfFile.getSize(), pdfFile.getContentType()
         );
+
+        // 5. Update Google Drive documents_catalog.json cloud archive
+        if (documentSyncService != null) {
+            documentSyncService.syncDocumentsToGoogleDrive();
+        }
+
+        return response;
     }
 
     @Transactional
@@ -234,6 +244,11 @@ public class AdminService {
         }
 
         documentRepository.delete(document);
+
+        // Update Google Drive documents_catalog.json cloud archive
+        if (documentSyncService != null) {
+            documentSyncService.syncDocumentsToGoogleDrive();
+        }
     }
 
     @Transactional
@@ -259,6 +274,12 @@ public class AdminService {
         doc.setPageCount(pages > 0 ? pages : (doc.getPageCount() != null ? doc.getPageCount() : 1));
 
         Document saved = documentRepository.save(doc);
+
+        // Update Google Drive documents_catalog.json cloud archive
+        if (documentSyncService != null) {
+            documentSyncService.syncDocumentsToGoogleDrive();
+        }
+
         return DocumentResponseDto.fromEntity(saved);
     }
 

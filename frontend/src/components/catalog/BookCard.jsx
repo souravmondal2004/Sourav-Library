@@ -1,11 +1,11 @@
 import React from 'react';
-import { BookOpen, Bookmark, Eye, Download, FileText } from 'lucide-react';
+import { BookOpen, Bookmark, Eye, Download, FileText, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 
 // Global in-memory cache for cover image load state
 const coverStatusCache = new Map();
 
-export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked }) {
+export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked, onDelete }) {
   const cachedStatus = coverStatusCache.get(book.id);
   const [hasCoverImg, setHasCoverImg] = React.useState(cachedStatus === 'loaded');
   const [coverFailed, setCoverFailed] = React.useState(cachedStatus === 'failed');
@@ -91,7 +91,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
         <h3 className="book-card-title" title={book.title}>{book.title}</h3>
         <p className="book-card-author">by {book.author}</p>
 
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', marginBottom: '0.85rem' }}>
+        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', marginBottom: '0.85rem' }}>
           <button
             className="btn btn-primary"
             style={{ flex: 1, padding: '0.45rem', fontSize: '0.82rem' }}
@@ -102,7 +102,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
           </button>
           <button
             className="btn btn-outline"
-            style={{ padding: '0.45rem', width: 38 }}
+            style={{ padding: '0.45rem', width: 36 }}
             onClick={() => onToggleBookmark(book.id)}
             title={isBookmarked ? 'Remove bookmark' : 'Bookmark book'}
           >
@@ -112,6 +112,24 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked 
               color={isBookmarked ? 'var(--color-gold)' : 'currentColor'}
             />
           </button>
+          {onDelete && (
+            <button
+              className="btn btn-outline book-card-delete-btn"
+              style={{
+                padding: '0.45rem',
+                width: 36,
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.3)'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(book.id, book.title);
+              }}
+              title="Delete PDF & Remove from Google Drive"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
 
         <div className="book-card-meta">
