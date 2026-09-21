@@ -1,9 +1,16 @@
 // API Base URL Resolver:
-// On localhost, connect to http://localhost:8080/api.
+// On Capacitor Android app: always connect to https://sourav-library.onrender.com/api.
+// On localhost browser, connect to http://localhost:8080/api.
 // On cloud production (e.g. sourav-library.vercel.app), always connect directly to
-// https://sourav-library.onrender.com/api to bypass Vercel's 4.5MB serverless payload limit,
-// enabling large 10MB-100MB PDF uploads to stream directly to Google Drive.
+// https://sourav-library.onrender.com/api to bypass Vercel's 4.5MB serverless payload limit.
 export const getApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const isCapacitor = !!window.Capacitor || window.location.protocol === 'capacitor:' || window.location.origin.includes('capacitor://');
+    if (isCapacitor) {
+      return 'https://sourav-library.onrender.com/api';
+    }
+  }
+
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }

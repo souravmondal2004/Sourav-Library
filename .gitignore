@@ -43,3 +43,11 @@ scratch/
 google-credentials.json
 backend/src/main/resources/google-credentials.json
 
+# Android Gradle builds & caches
+.gradle/
+**/.gradle/
+**/android/app/build/
+**/android/build/
+*.apk
+*.aab
+
