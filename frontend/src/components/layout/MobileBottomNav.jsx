@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Sparkles, BookmarkCheck, Shield, User, LogIn } from 'lucide-react';
+import { BookOpen, Sparkles, BookmarkCheck, Shield, User, LogIn, Upload } from 'lucide-react';
 import YoutubeIcon from '../common/YoutubeIcon';
 
 export default function MobileBottomNav({
@@ -8,6 +8,7 @@ export default function MobileBottomNav({
   onSelectSection,
   onExplore,
   onOpenLibrary,
+  onOpenUploadPdf,
   currentUser,
   isAdmin,
   onToggleAdmin,
@@ -37,7 +38,7 @@ export default function MobileBottomNav({
 
       <button
         type="button"
-        className={`mobile-nav-item ${isVideosActive ? 'active' : ''}`}
+        className={`mobile-nav-item video-nav-item ${isVideosActive ? 'active' : ''}`}
         onClick={() => onSelectSection && onSelectSection('videos')}
       >
         <div className="mobile-nav-icon-box">
@@ -45,6 +46,21 @@ export default function MobileBottomNav({
         </div>
         <span className="mobile-nav-label">Videos</span>
       </button>
+
+      {/* Upload button strictly for Admin */}
+      {isAdmin && (
+        <button
+          type="button"
+          className="mobile-nav-item"
+          onClick={onOpenUploadPdf}
+          title="Upload PDF Book (Admin Only)"
+        >
+          <div className="mobile-nav-icon-box" style={{ background: 'rgba(16, 185, 129, 0.15)', borderRadius: '50%', padding: '2px' }}>
+            <Upload size={18} strokeWidth={2.5} color="var(--color-emerald-light)" />
+          </div>
+          <span className="mobile-nav-label" style={{ color: 'var(--color-emerald-light)', fontWeight: 600 }}>Upload</span>
+        </button>
+      )}
 
       <button
         type="button"

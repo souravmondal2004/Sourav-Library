@@ -2,7 +2,14 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, FileText, Image, Sparkles, Check, AlertCircle, Cloud, BookOpen } from 'lucide-react';
 import { api } from '../../services/api';
 
-export default function PdfUploadModal({ isOpen, onClose, categories = [], onDocumentUploaded }) {
+export default function PdfUploadModal({
+  isOpen,
+  onClose,
+  categories = [],
+  onDocumentUploaded,
+  currentUser,
+  onQuickAdminLogin
+}) {
   const [pdfFile, setPdfFile] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
@@ -16,7 +23,10 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
 
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  const isAdmin = currentUser && (currentUser.role === 'ROLE_ADMIN' || currentUser.role === 'ADMIN' || currentUser.username === 'Sourav' || currentUser.username === 'admin');
 
   const pdfInputRef = useRef(null);
   const coverInputRef = useRef(null);
@@ -90,6 +100,10 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin) {
+      setErrorMsg('Admin authorization required: Only Admin (Sourav) can upload books to Sourav\'s Library. Please sign in as Admin.');
+      return;
+    }
     if (!pdfFile) {
       setErrorMsg('Please select a PDF document file to upload.');
       return;
@@ -105,6 +119,24 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
 
     setIsSubmitting(true);
     setErrorMsg(null);
+    setUploadStatus('Verifying cloud backend server status...');
+
+    // Pre-flight check: ensure Render container is awake before uploading 20MB+ payload
+    try {
+      let isReady = await api.system.checkHealth();
+      if (!isReady) {
+        setUploadStatus('Cloud backend server is waking up (~15-20s)... Please wait.');
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          await new Promise((r) => setTimeout(r, 4000));
+          isReady = await api.system.checkHealth();
+          if (isReady) break;
+        }
+      }
+    } catch (e) {
+      // ignore and proceed
+    }
+
+    setUploadStatus(`Uploading ${pdfFile.name} (${formatFileSize(pdfFile.size)}) directly to Google Drive (5TB)...`);
 
     const activeCatId = categoryId || (categories.length > 0 ? categories[0].id : 1);
     const formData = new FormData();
@@ -127,15 +159,17 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
         onDocumentUploaded(uploadedDoc);
       }
       setIsSubmitting(false);
+      setUploadStatus(null);
       onClose();
     } catch (err) {
       console.error('Failed to upload PDF:', err);
       let msg = err.message || 'Failed to upload document.';
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-        msg = 'Connection error. The cloud server might be waking up (~20s). Please try again in a few moments.';
+        msg = 'Connection error: Cloud server may still be initializing. Please try again in 10 seconds.';
       }
       setErrorMsg(msg);
       setIsSubmitting(false);
+      setUploadStatus(null);
     }
   };
 
@@ -178,6 +212,38 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
             <X size={20} />
           </button>
         </div>
+
+        {/* Admin Requirement Notice */}
+        {!isAdmin && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: 8,
+            padding: '0.75rem 1rem',
+            margin: '1rem 1.5rem 0'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#f87171', fontSize: '0.84rem' }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
+              <span>Admin Mode Required: Only Admin (Sourav) can upload or delete books.</span>
+            </div>
+            {onQuickAdminLogin && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  await onQuickAdminLogin();
+                }}
+                style={{ fontSize: '0.76rem', padding: '0.35rem 0.75rem', whiteSpace: 'nowrap' }}
+              >
+                Sign in as Admin
+              </button>
+            )}
+          </div>
+        )}
 
         {errorMsg && (
           <div style={{
@@ -419,7 +485,7 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
               {isSubmitting ? (
                 <>
                   <div className="spinner" style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
-                  <span>Uploading & Syncing to Drive...</span>
+                  <span>Uploading ({pdfFile ? formatFileSize(pdfFile.size) : 'PDF'})...</span>
                 </>
               ) : (
                 <>
@@ -429,6 +495,20 @@ export default function PdfUploadModal({ isOpen, onClose, categories = [], onDoc
               )}
             </button>
           </div>
+          {isSubmitting && (
+            <div style={{
+              textAlign: 'center',
+              marginTop: '0.85rem',
+              fontSize: '0.78rem',
+              color: 'var(--color-emerald-light)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6
+            }}>
+              <span>{uploadStatus || `Transferring ${pdfFile ? formatFileSize(pdfFile.size) : 'document'} directly to Google Drive cloud storage. Please wait...`}</span>
+            </div>
+          )}
         </form>
       </div>
     </div>

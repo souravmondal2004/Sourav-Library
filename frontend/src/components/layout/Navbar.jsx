@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles, Compass, Tv, Video } from 'lucide-react';
+import { BookOpen, Search, Shield, BookmarkCheck, User, LogOut, X, Sparkles, Compass, Tv, Video, Upload } from 'lucide-react';
 import YoutubeIcon from '../common/YoutubeIcon';
 
 export default function Navbar({
@@ -15,10 +15,11 @@ export default function Navbar({
   onExplore,
   onOpenAuth,
   onOpenLibrary,
+  onOpenUploadPdf,
   onLogout,
   onQuickAdminLogin
 }) {
-  const isAdmin = currentUser && currentUser.role === 'ROLE_ADMIN';
+  const isAdmin = currentUser && (currentUser.role === 'ROLE_ADMIN' || currentUser.role === 'ADMIN' || currentUser.username === 'Sourav' || currentUser.username === 'admin');
 
   return (
     <header className="navbar">
@@ -120,6 +121,30 @@ export default function Navbar({
             >
               <BookmarkCheck size={16} />
               My Library
+            </button>
+          )}
+
+          {/* Admin PDF Upload Button - Strictly for Admin (Sourav) */}
+          {isAdmin && (
+            <button
+              className="btn btn-primary"
+              onClick={onOpenUploadPdf}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: '0.84rem',
+                padding: '0.45rem 0.95rem',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                boxShadow: '0 2px 10px rgba(16, 185, 129, 0.3)',
+                border: 'none',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+              title="Upload PDF book or document (Admin Only)"
+            >
+              <Upload size={15} strokeWidth={2.5} />
+              <span>+ Upload PDF</span>
             </button>
           )}
 

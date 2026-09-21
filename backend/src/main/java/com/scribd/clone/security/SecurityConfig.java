@@ -49,7 +49,12 @@ public class SecurityConfig {
                         // Public endpoints & Cloud healthchecks
                         .requestMatchers("/", "/api/health", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/documents/**").permitAll()
+                        // Document Library: Public reading, streaming, downloading & search
+                        .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
+                        // Document Upload & Deletion: strictly restricted to Admin (Sourav)
+                        .requestMatchers(HttpMethod.POST, "/api/documents/upload").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/documents/sync").permitAll()
                         // Video Hub: Public viewing & liking & sync; Uploading/Deleting restricted strictly to Admin
                         .requestMatchers(HttpMethod.GET, "/api/videos/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/videos/*/view", "/api/videos/*/like", "/api/videos/sync").permitAll()

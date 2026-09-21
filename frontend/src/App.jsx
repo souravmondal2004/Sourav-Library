@@ -47,6 +47,7 @@ export default function App() {
   const mobileSearchInputRef = useRef(null);
 
   const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const isAdmin = currentUser && (currentUser.role === 'ROLE_ADMIN' || currentUser.role === 'ADMIN' || currentUser.username === 'Sourav' || currentUser.username === 'admin');
 
   const handleOpenMobileSearch = () => {
     if (currentView !== 'home') setCurrentView('home');
@@ -349,6 +350,7 @@ export default function App() {
         onExplore={handleExplore}
         onOpenAuth={handleOpenAuth}
         onOpenLibrary={() => setShowLibraryModal(true)}
+        onOpenUploadPdf={() => setIsPdfUploadOpen(true)}
         onLogout={handleLogout}
         onQuickAdminLogin={handleQuickAdminLogin}
       />
@@ -439,7 +441,7 @@ export default function App() {
               onReadBook={handleOpenReader}
               onToggleBookmark={handleToggleBookmark}
               isBookmarked={primaryFeatured ? bookmarkedIds.has(primaryFeatured.id) : false}
-              onUploadPdf={() => setIsPdfUploadOpen(true)}
+              onUploadPdf={isAdmin ? () => setIsPdfUploadOpen(true) : null}
             />
           )}
 
@@ -497,26 +499,28 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Action Buttons: Upload PDF + Cloud Sync + Admin */}
+              {/* Action Buttons: Upload PDF (Admin Only) + Cloud Sync + Admin */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setIsPdfUploadOpen(true)}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: '0.84rem',
-                    padding: '0.5rem 1rem',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 600
-                  }}
-                >
-                  <Upload size={14} strokeWidth={2.5} /> + Upload PDF / Book
-                </button>
+                {isAdmin && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setIsPdfUploadOpen(true)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: '0.84rem',
+                      padding: '0.5rem 1rem',
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    <Upload size={14} strokeWidth={2.5} /> + Upload PDF / Book
+                  </button>
+                )}
 
                 <button
                   className="btn btn-outline"
@@ -538,7 +542,7 @@ export default function App() {
                   {isDriveSyncing ? 'Syncing...' : 'Sync with Drive'}
                 </button>
 
-                {currentUser?.role === 'ROLE_ADMIN' && (
+                {isAdmin && (
                   <button
                     className="btn btn-outline"
                     onClick={() => setCurrentView('admin')}
@@ -564,7 +568,7 @@ export default function App() {
                     ? 'Try searching for different keywords or explore other categories.'
                     : 'No documents uploaded in this category yet.'}
                 </p>
-                {currentUser?.role === 'ROLE_ADMIN' && (
+                {isAdmin && (
                   <button
                     className="btn btn-accent"
                     style={{ marginTop: '1.25rem' }}
@@ -583,7 +587,7 @@ export default function App() {
                     onRead={handleOpenReader}
                     onToggleBookmark={handleToggleBookmark}
                     isBookmarked={bookmarkedIds.has(book.id)}
-                    onDelete={handleDeleteBook}
+                    onDelete={isAdmin ? handleDeleteBook : null}
                   />
                 ))}
               </div>
@@ -633,6 +637,8 @@ export default function App() {
         onClose={() => setIsPdfUploadOpen(false)}
         categories={categories}
         onDocumentUploaded={handlePdfUploaded}
+        currentUser={currentUser}
+        onQuickAdminLogin={handleQuickAdminLogin}
       />
 
       {/* Cloud Drive Sync Notification Toast */}
@@ -833,6 +839,7 @@ export default function App() {
         onExplore={handleExplore}
         onOpenSearch={handleOpenMobileSearch}
         onOpenLibrary={() => setShowLibraryModal(true)}
+        onOpenUploadPdf={() => setIsPdfUploadOpen(true)}
         currentUser={currentUser}
         isAdmin={currentUser?.role === 'ROLE_ADMIN'}
         onToggleAdmin={() => setCurrentView(currentView === 'admin' ? 'home' : 'admin')}

@@ -1,8 +1,23 @@
-/**
- * Scribd Clone API Client
- */
+// API Base URL Resolver:
+// On localhost, connect to http://localhost:8080/api.
+// On cloud production (e.g. sourav-library.vercel.app), always connect directly to
+// https://sourav-library.onrender.com/api to bypass Vercel's 4.5MB serverless payload limit,
+// enabling large 10MB-100MB PDF uploads to stream directly to Google Drive.
+export const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8080/api';
+    }
+    return 'https://sourav-library.onrender.com/api';
+  }
+  return 'https://sourav-library.onrender.com/api';
+};
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = getApiBaseUrl();
 
 // Helper to get JWT token from localStorage
 export const getAuthToken = () => localStorage.getItem('scribd_token');
@@ -362,30 +377,52 @@ export const api = {
     upload: async (formData) => {
       let token = getAuthToken();
       const user = getStoredUser();
-      if (!token) {
-        token = (user && user.token) ? user.token : (user?.username === 'Sourav' ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token');
+      const isAdmin = user && (user.role === 'ROLE_ADMIN' || user.role === 'ADMIN' || user.username === 'Sourav' || user.username === 'admin');
+      if (!token && isAdmin) {
+        token = user.token || (user?.username === 'Sourav' ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token');
         setAuthToken(token);
       }
+
+      // Stream directly to Render on cloud production to completely bypass Vercel's 4.5MB request limit
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const uploadUrl = isLocalhost ? 'http://localhost:8080/api/documents/upload' : 'https://sourav-library.onrender.com/api/documents/upload';
+
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5-minute timeout for 20MB-100MB PDFs
+
       let uploadedDoc = null;
       try {
-        uploadedDoc = await request('/documents/upload', {
+        const res = await fetch(uploadUrl, {
           method: 'POST',
-          body: formData
+          body: formData,
+          headers,
+          signal: controller.signal
         });
-      } catch (err) {
-        if (err.message && (err.message.includes('401') || err.message.includes('expired') || err.message.includes('authenticated') || err.message.includes('403') || err.message.includes('Forbidden'))) {
-          const fallbackToken = (user?.username === 'Sourav') ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token';
-          setAuthToken(fallbackToken);
-          uploadedDoc = await request('/documents/upload', {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Authorization': `Bearer ${fallbackToken}`
-            }
-          });
-        } else {
-          throw err;
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          let errMsg = errData.message || errData.error || `Upload failed with HTTP ${res.status}`;
+          if (res.status === 403) {
+            errMsg = 'Upload Forbidden (403): Only Admin (Sourav) can upload books to Sourav\'s Library. Please sign in as Admin.';
+          } else if (res.status === 401) {
+            errMsg = 'Authentication required: Please sign in as Admin (Sourav) to upload books.';
+          }
+          throw new Error(errMsg);
         }
+
+        uploadedDoc = await res.json();
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('Upload timed out after 5 minutes. Please verify your connection.');
+        }
+        throw err;
       }
 
       if (uploadedDoc) {
@@ -396,28 +433,33 @@ export const api = {
     delete: async (id) => {
       let token = getAuthToken();
       const user = getStoredUser();
-      if (!token) {
+      const isAdmin = user && (user.role === 'ROLE_ADMIN' || user.role === 'ADMIN' || user.username === 'Sourav' || user.username === 'admin');
+      if (!token && isAdmin) {
         token = (user && user.token) ? user.token : (user?.username === 'Sourav' ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token');
         setAuthToken(token);
       }
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const deleteUrl = isLocalhost ? `http://localhost:8080/api/documents/${id}` : `https://sourav-library.onrender.com/api/documents/${id}`;
+
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       try {
-        const res = await request(`/documents/${id}`, { method: 'DELETE', timeout: 60000 });
+        const res = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers
+        });
         removeDocumentFromCache(id);
-        return res;
-      } catch (err) {
-        if (err.message && (err.message.includes('401') || err.message.includes('expired') || err.message.includes('authenticated') || err.message.includes('403') || err.message.includes('Forbidden'))) {
-          const fallbackToken = (user?.username === 'Sourav') ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token';
-          setAuthToken(fallbackToken);
-          const res = await request(`/documents/${id}`, {
-            method: 'DELETE',
-            timeout: 60000,
-            headers: {
-              'Authorization': `Bearer ${fallbackToken}`
-            }
-          });
-          removeDocumentFromCache(id);
-          return res;
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          let errMsg = errData.message || `Delete failed with HTTP ${res.status}`;
+          if (res.status === 403) {
+            errMsg = 'Delete Forbidden (403): Only Admin (Sourav) can delete books from the library.';
+          }
+          throw new Error(errMsg);
         }
+        return await res.json().catch(() => ({ success: true }));
+      } catch (err) {
         removeDocumentFromCache(id);
         throw err;
       }
@@ -465,44 +507,8 @@ export const api = {
       }
     },
     uploadDocument: async (formData) => {
-      let token = getAuthToken();
-      const user = getStoredUser();
-      if (!token) {
-        token = (user && user.token) ? user.token : (user?.username === 'Sourav' ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token');
-        setAuthToken(token);
-      }
-      let uploadedDoc = null;
-      try {
-        uploadedDoc = await request('/admin/documents/upload', {
-          method: 'POST',
-          body: formData
-        });
-      } catch (err) {
-        // First try dedicated public /api/documents/upload endpoint
-        try {
-          uploadedDoc = await api.documents.upload(formData);
-        } catch (e1) {
-          // If upload fails with auth/session error, automatically retry with admin demo token
-          if (err.message && (err.message.includes('401') || err.message.includes('expired') || err.message.includes('authenticated') || err.message.includes('403') || err.message.includes('Forbidden'))) {
-            const fallbackToken = (user?.username === 'Sourav') ? 'demo-sourav-jwt-token' : 'demo-admin-jwt-token';
-            setAuthToken(fallbackToken);
-            uploadedDoc = await request('/admin/documents/upload', {
-              method: 'POST',
-              body: formData,
-              headers: {
-                'Authorization': `Bearer ${fallbackToken}`
-              }
-            });
-          } else {
-            throw err;
-          }
-        }
-      }
-
-      if (uploadedDoc) {
-        addDocumentToCache(uploadedDoc);
-      }
-      return uploadedDoc;
+      // Delegate to api.documents.upload with 5-minute timeout and direct cloud bypass
+      return await api.documents.upload(formData);
     },
     updateDocument: async (id, data) => {
       const updated = await request(`/admin/documents/${id}`, { method: 'PUT', body: data });
