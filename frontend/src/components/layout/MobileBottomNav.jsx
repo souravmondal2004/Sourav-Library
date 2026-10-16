@@ -29,6 +29,7 @@ export default function MobileBottomNav({
           onSelectSection && onSelectSection('books');
           onExplore();
         }}
+        title="Books & Documents"
       >
         <div className="mobile-nav-icon-box">
           <BookOpen size={19} strokeWidth={isBooksActive ? 2.5 : 2} />
@@ -40,11 +41,12 @@ export default function MobileBottomNav({
         type="button"
         className={`mobile-nav-item video-nav-item ${isVideosActive ? 'active' : ''}`}
         onClick={() => onSelectSection && onSelectSection('videos')}
+        title="Video Lectures Hub"
       >
         <div className="mobile-nav-icon-box">
-          <YoutubeIcon size={20} color={isVideosActive ? '#ff0000' : 'currentColor'} />
+          <YoutubeIcon size={19} color={isVideosActive ? '#ffffff' : 'currentColor'} />
         </div>
-        <span className="mobile-nav-label">Videos</span>
+        <span className="mobile-nav-label">Video Hub</span>
       </button>
 
       {/* Upload button strictly for Admin */}
@@ -53,12 +55,12 @@ export default function MobileBottomNav({
           type="button"
           className="mobile-nav-item"
           onClick={onOpenUploadPdf}
-          title="Upload PDF Book (Admin Only)"
+          title="Upload Resource"
         >
-          <div className="mobile-nav-icon-box" style={{ background: 'rgba(16, 185, 129, 0.15)', borderRadius: '50%', padding: '2px' }}>
-            <Upload size={18} strokeWidth={2.5} color="var(--color-emerald-light)" />
+          <div className="mobile-nav-icon-box" style={{ background: '#0d7751', borderRadius: '50%', color: '#fff', width: 28, height: 28 }}>
+            <Upload size={16} strokeWidth={2.5} />
           </div>
-          <span className="mobile-nav-label" style={{ color: 'var(--color-emerald-light)', fontWeight: 600 }}>Upload</span>
+          <span className="mobile-nav-label" style={{ color: '#0d7751', fontWeight: 700 }}>Upload</span>
         </button>
       )}
 
@@ -66,22 +68,24 @@ export default function MobileBottomNav({
         type="button"
         className={`mobile-nav-item ${isAIActive ? 'active' : ''}`}
         onClick={() => onSelectSection && onSelectSection('ai')}
+        title="NDLI AI Knowledge Assistant"
       >
         <div className="mobile-nav-icon-box">
-          <Sparkles size={19} color={isAIActive ? '#c084fc' : 'currentColor'} strokeWidth={isAIActive ? 2.5 : 2} />
+          <Sparkles size={19} color={isAIActive ? '#ff9933' : 'currentColor'} strokeWidth={isAIActive ? 2.5 : 2} />
         </div>
-        <span className="mobile-nav-label">Sourav AI</span>
+        <span className="mobile-nav-label">AI Tutor</span>
       </button>
 
       <button
         type="button"
         className="mobile-nav-item"
         onClick={onOpenLibrary}
+        title="Saved Bookshelf"
       >
         <div className="mobile-nav-icon-box">
           <BookmarkCheck size={19} />
         </div>
-        <span className="mobile-nav-label">Library</span>
+        <span className="mobile-nav-label">Bookshelf</span>
       </button>
 
       {isAdmin && (
@@ -89,9 +93,10 @@ export default function MobileBottomNav({
           type="button"
           className={`mobile-nav-item mobile-nav-admin ${isAdminActive ? 'active' : ''}`}
           onClick={onToggleAdmin}
+          title="Admin Control"
         >
           <div className="mobile-nav-icon-box">
-            <Shield size={20} strokeWidth={isAdminActive ? 2.5 : 2} />
+            <Shield size={19} strokeWidth={isAdminActive ? 2.5 : 2} />
           </div>
           <span className="mobile-nav-label">Admin</span>
         </button>
@@ -102,9 +107,10 @@ export default function MobileBottomNav({
           type="button"
           className="mobile-nav-item"
           onClick={() => onOpenAuth('account')}
+          title="Profile & Settings"
         >
           <div className="mobile-nav-icon-box">
-            <div className="mobile-user-avatar">
+            <div className="mobile-user-avatar" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
               {currentUser.username ? currentUser.username.charAt(0).toUpperCase() : 'U'}
             </div>
           </div>
@@ -115,9 +121,10 @@ export default function MobileBottomNav({
           type="button"
           className="mobile-nav-item"
           onClick={() => onOpenAuth('login')}
+          title="Sign in to your account"
         >
           <div className="mobile-nav-icon-box">
-            <LogIn size={20} />
+            <LogIn size={19} />
           </div>
           <span className="mobile-nav-label">Sign In</span>
         </button>

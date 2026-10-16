@@ -64,14 +64,14 @@ export default function UserLibrary({ onClose, onReadBook, onToggleBookmark }) {
           </div>
         ) : items.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem' }}>
-            <BookOpen size={40} color="var(--color-emerald-light)" style={{ margin: '0 auto 1rem', opacity: 0.7 }} />
-            <h4 style={{ color: '#ffffff', fontSize: '1.2rem' }}>
-              {activeTab === 'bookmarks' ? 'No saved books yet' : 'No reading history yet'}
+            <BookOpen size={40} color="var(--color-ndli-green)" style={{ margin: '0 auto 1rem', opacity: 0.85 }} />
+            <h4 style={{ color: 'var(--color-ndli-navy)', fontSize: '1.2rem', fontWeight: 700 }}>
+              {activeTab === 'bookmarks' ? 'No saved publications yet' : 'No reading history yet'}
             </h4>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: 6, maxWidth: 420, margin: '0.5rem auto 1.5rem' }}>
               {activeTab === 'bookmarks'
-                ? 'Click the bookmark icon on any publication to build your private library collection.'
-                : 'Books you open in the interactive reader will automatically save your page progress here.'}
+                ? 'Click the bookmark icon on any document to build your personal NDLI study collection.'
+                : 'Publications you open in the digital reader will automatically record your progress here.'}
             </p>
             <button className="btn btn-primary" onClick={onClose}>
               Browse Catalog

@@ -49,7 +49,9 @@ public class SecurityConfig {
                         // Public endpoints & Cloud healthchecks
                         .requestMatchers("/", "/api/health", "/favicon.ico", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // Document Library: Public reading, streaming, downloading & search
+                        // PDF Downloads strictly require authentication (Only logged-in users can download)
+                        .requestMatchers(HttpMethod.GET, "/api/documents/*/download").authenticated()
+                        // Document Library: Public reading, streaming, covers & search
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").permitAll()
                         // Document Upload & Deletion: strictly restricted to Admin (Sourav)
                         .requestMatchers(HttpMethod.POST, "/api/documents/upload").hasAnyAuthority("ROLE_ADMIN", "ADMIN")
@@ -73,12 +75,16 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(401);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"Session expired or not authenticated. Please log in as Admin.\"}");
+                            String uri = request.getRequestURI();
+                            String msg = (uri != null && uri.contains("/download"))
+                                    ? "Login required to download PDF books. Please sign in or register to download."
+                                    : "Session expired or not authenticated. Please log in.";
+                            response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + msg + "\"}");
                         })
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setStatus(403);
                             response.setContentType("application/json");
-                            response.getWriter().write("{\"error\": \"Forbidden\", \"message\": \"Access Denied: Admin authorization required to upload or manage documents.\"}");
+                            response.getWriter().write("{\"error\": \"Forbidden\", \"message\": \"Access Denied: Authorization required.\"}");
                         })
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

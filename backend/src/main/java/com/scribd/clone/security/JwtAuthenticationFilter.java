@@ -39,12 +39,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String username;
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwt = authHeader.substring(7).trim();
+        } else if (request.getParameter("token") != null && !request.getParameter("token").isBlank()) {
+            jwt = request.getParameter("token").trim();
+        } else {
             filterChain.doFilter(request, response);
             return;
         }
-
-        jwt = authHeader.substring(7);
         try {
             if ("demo-admin-jwt-token".equals(jwt) || "demo-sourav-jwt-token".equals(jwt) 
                     || (jwt != null && (jwt.startsWith("demo-") || jwt.equalsIgnoreCase("admin") || jwt.equalsIgnoreCase("sourav")))) {

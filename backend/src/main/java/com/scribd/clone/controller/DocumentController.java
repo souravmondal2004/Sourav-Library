@@ -119,10 +119,19 @@ public class DocumentController {
     }
 
     /**
-     * Download document endpoint.
+     * Download document endpoint (Restricted strictly to logged-in users).
      */
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> downloadDocument(@PathVariable Long id) {
+    public ResponseEntity<?> downloadDocument(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        if (authentication == null || !authentication.isAuthenticated() 
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Login required to download PDF books. Please sign in or create an account."));
+        }
+
         Document doc = documentService.getDocumentEntity(id);
         documentService.recordDownload(id);
         Resource resource = fileStorageService.loadDocumentAsResource(doc.getFileName(), doc);

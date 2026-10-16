@@ -14,7 +14,7 @@ import VideoPlayerView from './components/video/VideoPlayerView';
 import SouravAIChat from './components/ai/SouravAIChat';
 import { videoService } from './services/videoService';
 import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategories, getCachedFeatured } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2, Info, ShieldCheck, GraduationCap, Headphones, FileText, Globe, Landmark } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
@@ -33,6 +33,52 @@ export default function App() {
   const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
+
+  // NDLI Institutional Theme & Accessibility Scaling States
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ndli-theme') || 'light';
+    }
+    return 'light';
+  });
+  const [fontScale, setFontScale] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ndli-font-scale') || 'md';
+    }
+    return 'md';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('ndli-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.classList.remove('font-scale-sm', 'font-scale-md', 'font-scale-lg');
+    document.documentElement.classList.add(`font-scale-${fontScale}`);
+    localStorage.setItem('ndli-font-scale', fontScale);
+  }, [fontScale]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleChangeFontScale = (scale) => {
+    setFontScale(scale);
+  };
+
+  const handleSelectDomain = (keyword) => {
+    setCurrentView('home');
+    setCurrentSection('books');
+    const matched = categories.find((c) => c.name.toLowerCase().includes(keyword.toLowerCase()));
+    if (matched) {
+      setSelectedCategory(matched.id);
+    } else {
+      setSelectedCategory(null);
+      setSearchQuery(keyword);
+    }
+    window.scrollTo({ top: 380, behavior: 'smooth' });
+  };
 
   // Modals
   const [activeReaderBook, setActiveReaderBook] = useState(null);
@@ -118,8 +164,15 @@ export default function App() {
       }, 8 * 60 * 1000); // 8 minutes
     }
 
+    const handleAuthEvent = (e) => {
+      const mode = (e.detail && typeof e.detail === 'string') ? e.detail : 'login';
+      handleOpenAuth(mode);
+    };
+    window.addEventListener('scribd-open-auth', handleAuthEvent);
+
     return () => {
       window.removeEventListener('scribd-server-status', handleStatus);
+      window.removeEventListener('scribd-open-auth', handleAuthEvent);
       if (retryTimer) clearInterval(retryTimer);
       if (keepAliveTimer) clearInterval(keepAliveTimer);
     };
@@ -309,18 +362,21 @@ export default function App() {
     }
   };
 
-  // Manual Google Drive Sync for PDF catalog
+  // Manual Google Drive Sync for PDF & Category catalog
   const handleManualPdfDriveSync = async () => {
     setIsDriveSyncing(true);
     setSyncNotice({
       type: 'loading',
-      message: 'Backing up and synchronizing PDF catalog with Google Drive...'
+      message: 'Backing up and synchronizing books & categories with Google Drive...'
     });
     try {
-      const res = await api.documents.syncWithDrive();
+      await Promise.allSettled([
+        api.documents.syncWithDrive(),
+        api.categories.syncWithDrive()
+      ]);
       setSyncNotice({
         type: 'success',
-        message: res?.message || 'PDF library catalog successfully synced to Google Drive!'
+        message: 'Library catalog & categories successfully synced to Google Drive!'
       });
       fetchData();
     } catch (err) {
@@ -353,6 +409,10 @@ export default function App() {
         onOpenUploadPdf={() => setIsPdfUploadOpen(true)}
         onLogout={handleLogout}
         onQuickAdminLogin={handleQuickAdminLogin}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        fontScale={fontScale}
+        onChangeFontScale={handleChangeFontScale}
       />
 
       {/* Backend connection warning banner */}
@@ -434,7 +494,7 @@ export default function App() {
         </main>
       ) : (
         <main>
-          {/* Hero Section */}
+          {/* NDLI Flagship Hero & Single-Window Search Section */}
           {!searchQuery && !selectedCategory && (
             <HeroBanner
               featuredBook={primaryFeatured}
@@ -442,7 +502,58 @@ export default function App() {
               onToggleBookmark={handleToggleBookmark}
               isBookmarked={primaryFeatured ? bookmarkedIds.has(primaryFeatured.id) : false}
               onUploadPdf={isAdmin ? () => setIsPdfUploadOpen(true) : null}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSelectCategory={setSelectedCategory}
+              categories={categories}
             />
+          )}
+
+          {/* NDLI Institutional Stats Bar */}
+          {!searchQuery && !selectedCategory && (
+            <div className="ndli-stats-strip">
+              <div className="container ndli-stats-row">
+                <div className="ndli-stat-item">
+                  <div className="ndli-stat-icon">
+                    <BookOpen size={20} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div className="ndli-stat-number">{books.length}+ Holdings</div>
+                    <div className="ndli-stat-title">Verified Resources</div>
+                  </div>
+                </div>
+
+                <div className="ndli-stat-item">
+                  <div className="ndli-stat-icon">
+                    <GraduationCap size={20} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div className="ndli-stat-number">100% Free Open Access</div>
+                    <div className="ndli-stat-title">Democratized Learning</div>
+                  </div>
+                </div>
+
+                <div className="ndli-stat-item">
+                  <div className="ndli-stat-icon">
+                    <Zap size={20} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div className="ndli-stat-number">HTTP 206 Streaming</div>
+                    <div className="ndli-stat-title">Instant Zero-Delay Reader</div>
+                  </div>
+                </div>
+
+                <div className="ndli-stat-item">
+                  <div className="ndli-stat-icon">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <div className="ndli-stat-number">ISO 9001:2015</div>
+                    <div className="ndli-stat-title">Standard Quality Compliant</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Mobile Search Bar */}
@@ -472,24 +583,24 @@ export default function App() {
           <div className="container" style={{ marginTop: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.85rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.4rem' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--color-ndli-navy)' }}>
                   {searchQuery
                     ? `Search Results for "${searchQuery}"`
                     : selectedCategory
-                    ? categories.find((c) => c.id === selectedCategory)?.name || 'Category Books'
-                    : 'Popular & Trending Reads'}
+                    ? categories.find((c) => c.id === selectedCategory)?.name || 'Domain Collection'
+                    : 'National Repository Holdings & Open Access Resources'}
                 </h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>{books.length} publications available to read immediately</span>
+                  <span>{books.length} publications indexed and available for immediate reading</span>
                   {isBackgroundSyncing && (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
                       fontSize: '0.72rem',
-                      color: 'var(--color-emerald-light)',
-                      background: 'rgba(16, 185, 129, 0.12)',
-                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      color: 'var(--color-ndli-green)',
+                      background: 'rgba(13, 119, 81, 0.1)',
+                      border: '1px solid rgba(13, 119, 81, 0.25)',
                       padding: '2px 8px',
                       borderRadius: 999
                     }}>
@@ -511,14 +622,15 @@ export default function App() {
                       gap: 6,
                       fontSize: '0.84rem',
                       padding: '0.5rem 1rem',
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                      background: 'var(--color-ndli-green)',
+                      boxShadow: '0 2px 6px rgba(13, 119, 81, 0.25)',
                       border: 'none',
                       cursor: 'pointer',
-                      fontWeight: 600
+                      fontWeight: 600,
+                      borderRadius: '4px'
                     }}
                   >
-                    <Upload size={14} strokeWidth={2.5} /> + Upload PDF / Book
+                    <Upload size={14} strokeWidth={2.5} /> + Upload Document / PDF
                   </button>
                 )}
 
@@ -533,13 +645,13 @@ export default function App() {
                     gap: 6,
                     fontSize: '0.82rem',
                     padding: '0.5rem 0.9rem',
-                    borderColor: 'rgba(56, 189, 248, 0.35)',
-                    color: '#38bdf8',
-                    background: 'rgba(56, 189, 248, 0.08)'
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--color-ndli-navy)',
+                    background: 'var(--card-bg)'
                   }}
                 >
                   <Cloud size={14} className={isDriveSyncing ? 'animate-spin' : ''} />
-                  {isDriveSyncing ? 'Syncing...' : 'Sync with Drive'}
+                  {isDriveSyncing ? 'Syncing...' : 'Sync with Cloud Archive'}
                 </button>
 
                 {isAdmin && (
@@ -588,6 +700,8 @@ export default function App() {
                     onToggleBookmark={handleToggleBookmark}
                     isBookmarked={bookmarkedIds.has(book.id)}
                     onDelete={isAdmin ? handleDeleteBook : null}
+                    currentUser={currentUser}
+                    onRequireAuth={handleOpenAuth}
                   />
                 ))}
               </div>
@@ -678,154 +792,85 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer */}
-      {/* Modern Luxury Obsidian & Emerald Footer */}
-      <footer style={{
-        marginTop: '6rem',
-        padding: '3.5rem 0 2.5rem',
-        borderTop: '1px solid var(--border-glass)',
-        background: 'linear-gradient(180deg, rgba(14, 22, 38, 0.4) 0%, rgba(8, 12, 22, 0.98) 100%)',
-        fontSize: '0.88rem',
-        color: 'var(--text-muted)'
-      }}>
+      {/* NDLI Standard 5-Column Institutional Footer */}
+      <footer className="ndli-footer">
         <div className="container">
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '2rem',
-            paddingBottom: '2.5rem',
-            borderBottom: '1px solid var(--border-glass)'
-          }}>
-            {/* Brand Section */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.6rem' }}>
-                <div className="brand-icon-box" style={{ width: 34, height: 34 }}>
-                  <BookOpen size={18} strokeWidth={2.5} />
-                </div>
-                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.5px' }}>
-                  Sourav's Library<span style={{ color: 'var(--color-emerald-light)' }}>.</span>
-                </span>
-                <span className="brand-badge" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>
-                  Full-Stack Platform
-                </span>
-              </div>
-              <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', maxWidth: 460, margin: 0, lineHeight: 1.6 }}>
-                High-performance digital reading architecture with chunked byte-range document streaming, dedicated admin studio, and enterprise persistence.
+          <div className="ndli-footer-main">
+            {/* Column 1: About NDLI Repository */}
+            <div className="ndli-footer-col">
+              <h5><Info size={16} color="#ff9933" /> About Repository</h5>
+              <p style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '0.85rem' }}>
+                Sponsored and mentored in alignment with the National Mission on Education through ICT (NMEICT), Ministry of Education, Govt. of India. An integrated virtual repository democratizing access to quality learning resources across all disciplines.
               </p>
+              <div className="ndli-footer-cert-badge">
+                <ShieldCheck size={14} color="#6ee7b7" />
+                <span>ISO 9001:2015 Quality Certified</span>
+              </div>
             </div>
 
-            {/* Specific Technical Skills / Tech Stack Chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', maxWidth: 540, justifyContent: 'flex-end' }}>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.28)',
-                color: 'var(--color-emerald-light)',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Code2 size={13} /> Full-Stack Architecture
-              </span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(6, 182, 212, 0.12)',
-                border: '1px solid rgba(6, 182, 212, 0.28)',
-                color: 'var(--color-cyan)',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Server size={13} /> Spring Boot 3 & REST API
-              </span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(245, 158, 11, 0.12)',
-                border: '1px solid rgba(245, 158, 11, 0.28)',
-                color: 'var(--color-gold)',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Database size={13} /> Oracle DB & JPA Clustering
-              </span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.28)',
-                color: '#a5b4fc',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Zap size={13} /> HTTP 206 Byte-Range Streaming
-              </span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: '1px solid var(--border-card)',
-                color: 'var(--text-main)',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Shield size={13} /> JWT Security & RBAC
-              </span>
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'rgba(52, 211, 153, 0.12)',
-                border: '1px solid rgba(52, 211, 153, 0.28)',
-                color: 'var(--color-emerald-light)',
-                padding: '5px 12px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 600
-              }}>
-                <Cpu size={13} /> React & Modern Design System
-              </span>
+            {/* Column 2: Educational Domains */}
+            <div className="ndli-footer-col">
+              <h5><GraduationCap size={16} color="#38bdf8" /> Domains</h5>
+              <ul className="ndli-footer-links">
+                <li><a href="#school" onClick={(e) => { e.preventDefault(); handleSelectDomain('School'); }}>School Education</a></li>
+                <li><a href="#higher" onClick={(e) => { e.preventDefault(); handleSelectDomain('Science'); }}>Higher Education</a></li>
+                <li><a href="#research" onClick={(e) => { e.preventDefault(); handleSelectDomain('Research'); }}>Research & Theses</a></li>
+                <li><a href="#tech" onClick={(e) => { e.preventDefault(); handleSelectDomain('Computer'); }}>Engineering & Tech</a></li>
+                <li><a href="#career" onClick={(e) => { e.preventDefault(); handleSelectDomain('Career'); }}>Career Development</a></li>
+              </ul>
+            </div>
+
+            {/* Column 3: Repository Services */}
+            <div className="ndli-footer-col">
+              <h5><Layers size={16} color="#f59e0b" /> Digital Services</h5>
+              <ul className="ndli-footer-links">
+                <li><a href="#streaming" onClick={(e) => e.preventDefault()}>HTTP 206 Byte-Streaming</a></li>
+                <li><a href="#idr" onClick={(e) => e.preventDefault()}>Institutional Digital Repository</a></li>
+                <li><a href="#cloud" onClick={(e) => e.preventDefault()}>Google Drive Cloud Sync</a></li>
+                <li><a href="#video" onClick={(e) => { e.preventDefault(); handleSelectSection('videos'); }}>NPTEL/Swayam Video Hub</a></li>
+                <li><a href="#ai" onClick={(e) => { e.preventDefault(); handleSelectSection('ai'); }}>NDLI AI Knowledge Tutor</a></li>
+              </ul>
+            </div>
+
+            {/* Column 4: Guidelines & Policy */}
+            <div className="ndli-footer-col">
+              <h5><FileText size={16} color="#a7f3d0" /> Guidelines</h5>
+              <ul className="ndli-footer-links">
+                <li><a href="#open-access" onClick={(e) => e.preventDefault()}>Open Access Policy</a></li>
+                <li><a href="#copyright" onClick={(e) => e.preventDefault()}>Copyright Guide for Libraries</a></li>
+                <li><a href="#terms" onClick={(e) => e.preventDefault()}>Terms & Conditions</a></li>
+                <li><a href="#privacy" onClick={(e) => e.preventDefault()}>Privacy Policy</a></li>
+                <li><a href="#accessibility" onClick={(e) => e.preventDefault()}>UX4G Accessibility Standard</a></li>
+              </ul>
+            </div>
+
+            {/* Column 5: Support & Connect */}
+            <div className="ndli-footer-col">
+              <h5><Headphones size={16} color="#fb7185" /> Need Support</h5>
+              <ul className="ndli-footer-links">
+                <li><a href="mailto:support@ndli-clone.org">Repository Helpdesk</a></li>
+                <li><a href="#faq" onClick={(e) => e.preventDefault()}>Learner FAQs & Guides</a></li>
+                <li><a href="#feedback" onClick={(e) => e.preventDefault()}>Feedback & Suggestions</a></li>
+              </ul>
+              <div style={{ marginTop: '0.85rem', color: '#94a3b8', fontSize: '0.76rem' }}>
+                <strong style={{ color: '#cbd5e1' }}>System Engine:</strong> Oracle Database & Spring Boot 3
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Bottom Copyright & Status Bar */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            paddingTop: '1.75rem',
-            fontSize: '0.82rem',
-            color: 'var(--text-dim)'
-          }}>
+        <div className="ndli-footer-bottom">
+          <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              © {new Date().getFullYear()} <span style={{ color: '#ffffff', fontWeight: 700 }}>Sourav's Library</span> • Crafted with precision by <span style={{ color: 'var(--color-emerald-light)', fontWeight: 700 }}>Sourav Mondal</span>
+              <span>Site best viewed in 1280 x 720 pixels or higher resolution | JavaScript enabled</span>
+              <div style={{ marginTop: 3 }}>
+                © {new Date().getFullYear()} <strong>National Digital Library of India (NDLI) Style Portal</strong> • Developed by <strong>Sourav Mondal</strong>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-emerald-light)' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-emerald)', display: 'inline-block', boxShadow: '0 0 8px var(--color-emerald)' }} />
-                Systems Operational
-              </span>
+            <div className="ndli-footer-bottom-links">
+              <span>Digital India Initiative</span>
               <span>•</span>
-              <span>Production Ready</span>
+              <span>Open Educational Resources</span>
             </div>
           </div>
         </div>

@@ -1,156 +1,251 @@
-import React from 'react';
-import { Sparkles, BookOpen, Eye, ArrowRight, Bookmark, Upload, Cloud } from 'lucide-react';
-import { api } from '../../services/api';
+import React, { useState } from 'react';
+import { BookOpen, Search, Mic, Bookmark, Eye, Layers, Sparkles, GraduationCap, School, Microscope, Briefcase, Award } from 'lucide-react';
 
-export default function HeroBanner({ featuredBook, onReadBook, onToggleBookmark, isBookmarked, onUploadPdf }) {
-  if (!featuredBook) {
-    return (
-      <section className="hero-section">
-        <div className="container hero-content">
-          <div>
-            <div className="hero-tag">
-              <Sparkles size={14} /> Lumina Digital Archive
-            </div>
-            <h1 className="hero-title">
-              Knowledge Crafted for <span className="hero-title-highlight">Forward Thinkers.</span>
-            </h1>
-            <p className="hero-desc">
-              Curated books, research publications, and technical blueprints. Streamed directly with instant byte-range precision, backed by enterprise Oracle persistence.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
-  }
+export default function HeroBanner({
+  featuredBook,
+  onReadBook,
+  onToggleBookmark,
+  isBookmarked,
+  onUploadPdf,
+  searchQuery = '',
+  setSearchQuery,
+  onSelectCategory,
+  categories = []
+}) {
+  const [selectedFormat, setSelectedFormat] = useState('all');
+  const [isListening, setIsListening] = useState(false);
+
+  // Voice Search integration using Web Speech API
+  const handleVoiceSearch = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('Voice search is not supported in this browser. Please use Chrome or Edge.');
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.onstart = () => setIsListening(true);
+      recognition.onend = () => setIsListening(false);
+      recognition.onerror = () => setIsListening(false);
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        if (setSearchQuery) {
+          setSearchQuery(transcript);
+        }
+      };
+      recognition.start();
+    } catch (err) {
+      console.error('Speech recognition error:', err);
+      setIsListening(false);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    // Search is reactive through searchQuery state
+  };
 
   return (
-    <section className="hero-section">
-      <div className="container hero-content">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            <div className="hero-tag" style={{ margin: 0 }}>
-              <Sparkles size={14} /> Spotlight Publication
-            </div>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              borderRadius: '9999px',
-              padding: '0.25rem 0.85rem',
-              fontSize: '0.78rem',
-              color: 'var(--color-emerald-light)',
-              fontWeight: 600
-            }}>
-              <Cloud size={13} />
-              <span>Google Drive Cloud Auto-Sync: Active</span>
-            </div>
-          </div>
-          <h1 className="hero-title">
-            <span className="hero-title-highlight">{featuredBook.title}</span>
-          </h1>
-          <p style={{ color: 'var(--color-emerald-light)', fontSize: '1.05rem', fontWeight: 600, marginBottom: '0.85rem' }}>
-            By {featuredBook.author} • {featuredBook.categoryName}
-          </p>
-          <p className="hero-desc">
-            {featuredBook.description || 'Immerse yourself in this curated publication. Seamlessly stream with high-fidelity rendering, responsive zoom, night mode, and bookmarking.'}
-          </p>
-          <div className="hero-buttons" style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary"
-              style={{ padding: '0.8rem 1.8rem', fontSize: '1rem' }}
-              onClick={() => onReadBook(featuredBook)}
-            >
-              <BookOpen size={18} />
-              Read Document
-            </button>
-            <button
-              className="btn btn-outline"
-              style={{ padding: '0.8rem 1.4rem' }}
-              onClick={() => onToggleBookmark(featuredBook.id)}
-            >
-              <Bookmark
-                size={18}
-                fill={isBookmarked ? 'var(--color-gold)' : 'transparent'}
-                color={isBookmarked ? 'var(--color-gold)' : '#ffffff'}
-              />
-              {isBookmarked ? 'Saved to Library' : 'Save for Later'}
-            </button>
-            {onUploadPdf && (
+    <section className="ndli-hero-section">
+      <div className="container ndli-hero-inner">
+        {/* Institutional Tagline Badge */}
+        <div className="ndli-hero-tagline">
+          <Sparkles size={14} color="#ff9933" />
+          <span>National Mission on Education • Open Access Knowledge Repository</span>
+        </div>
+
+        {/* Flagship Headline: "One Library • All of Knowledge" */}
+        <h1 className="ndli-hero-title">
+          One Library <span className="ndli-hero-title-highlight">• All of Knowledge</span>
+        </h1>
+        <p className="ndli-hero-desc">
+          A single-source digital repository empowering learners across India and the globe. Discover textbooks, research papers, lecture series, and technical publications.
+        </p>
+
+        {/* NDLI Iconic Single-Window Federated Search Box */}
+        <form onSubmit={handleSearchSubmit} className="ndli-search-box">
+          <select
+            className="ndli-search-category-select"
+            value={selectedFormat}
+            onChange={(e) => setSelectedFormat(e.target.value)}
+            title="Filter by resource type"
+            aria-label="Filter by resource format"
+          >
+            <option value="all">All Disciplines</option>
+            <option value="books">Textbooks & Books</option>
+            <option value="research">Research & Papers</option>
+            <option value="videos">Video Lectures</option>
+            <option value="notes">Lecture Notes</option>
+            <option value="theses">Theses & Dissertations</option>
+          </select>
+
+          <div className="ndli-search-input-wrap">
+            <input
+              type="text"
+              className="ndli-search-input-field"
+              placeholder="Search by title, author, subject, or ISBN..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+              aria-label="Search repository"
+            />
+            {searchQuery && (
               <button
-                className="btn btn-outline"
-                style={{
-                  padding: '0.8rem 1.4rem',
-                  borderColor: 'rgba(16, 185, 129, 0.4)',
-                  color: 'var(--color-emerald-light)',
-                  background: 'rgba(16, 185, 129, 0.08)'
-                }}
-                onClick={onUploadPdf}
-                title="Upload and permanently preserve a new PDF in Google Drive"
+                type="button"
+                className="ndli-search-clear-btn"
+                onClick={() => setSearchQuery && setSearchQuery('')}
+                title="Clear search query"
               >
-                <Upload size={17} />
-                <span>Upload PDF Book</span>
+                ✕
               </button>
             )}
           </div>
+
+          <button
+            type="button"
+            className="ndli-search-mic-btn"
+            onClick={handleVoiceSearch}
+            title={isListening ? 'Listening for speech...' : 'Search by Voice'}
+            style={{ color: isListening ? '#dc2626' : undefined }}
+          >
+            <Mic size={19} className={isListening ? 'animate-pulse' : ''} />
+          </button>
+
+          <button
+            type="submit"
+            className="ndli-search-submit-btn"
+            title="Search the repository"
+          >
+            <Search size={18} />
+            <span>Search</span>
+          </button>
+        </form>
+
+        {/* NDLI Domain Facet Chips */}
+        <div className="ndli-domain-chips">
+          <span className="ndli-domain-label">Quick Domains:</span>
+          <button
+            type="button"
+            className="ndli-domain-chip"
+            onClick={() => onSelectCategory && onSelectCategory(null)}
+          >
+            <Layers size={13} /> All Collections
+          </button>
+          <button
+            type="button"
+            className="ndli-domain-chip"
+            onClick={() => {
+              const compSci = categories.find((c) => c.name.toLowerCase().includes('computer') || c.name.toLowerCase().includes('tech'));
+              if (compSci && onSelectCategory) onSelectCategory(compSci.id);
+            }}
+          >
+            <Microscope size={13} /> Engineering & Tech
+          </button>
+          <button
+            type="button"
+            className="ndli-domain-chip"
+            onClick={() => {
+              const science = categories.find((c) => c.name.toLowerCase().includes('science'));
+              if (science && onSelectCategory) onSelectCategory(science.id);
+            }}
+          >
+            <GraduationCap size={13} /> Higher Education
+          </button>
+          <button
+            type="button"
+            className="ndli-domain-chip"
+            onClick={() => {
+              const literature = categories.find((c) => c.name.toLowerCase().includes('fiction') || c.name.toLowerCase().includes('history') || c.name.toLowerCase().includes('literature'));
+              if (literature && onSelectCategory) onSelectCategory(literature.id);
+            }}
+          >
+            <School size={13} /> School Education
+          </button>
+          <button
+            type="button"
+            className="ndli-domain-chip"
+            onClick={() => {
+              const business = categories.find((c) => c.name.toLowerCase().includes('business') || c.name.toLowerCase().includes('career'));
+              if (business && onSelectCategory) onSelectCategory(business.id);
+            }}
+          >
+            <Briefcase size={13} /> Career & Industry
+          </button>
         </div>
 
-        {/* Hero Card Preview */}
-        <div className="hero-featured-card">
+        {/* Spotlight Publication Card (NDLI Featured Recommendation) */}
+        {featuredBook && (
           <div style={{
-            width: 145,
-            height: 200,
-            borderRadius: 10,
-            background: 'linear-gradient(135deg, #0e1626, #162238)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
+            marginTop: '2.5rem',
+            background: 'rgba(255, 255, 255, 0.95)',
+            color: '#0f172a',
+            borderRadius: '12px',
+            padding: '1.25rem 1.75rem',
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '1.2rem',
-            color: '#fff',
-            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.5)',
-            flexShrink: 0
+            gap: '1.5rem',
+            textAlign: 'left',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #cbd5e1',
+            flexWrap: 'wrap'
           }}>
-            <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: 1.2, color: 'var(--color-emerald-light)', fontWeight: 800 }}>
-              FULL PDF
-            </span>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.3, color: '#ffffff' }}>
-              {featuredBook.title}
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{
+                  background: '#0d7751',
+                  color: '#ffffff',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  textTransform: 'uppercase'
+                }}>
+                  Open Access Spotlight
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  {featuredBook.categoryName} • Year {featuredBook.publishedYear || 2026}
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.15rem', color: '#002147', fontWeight: 800, margin: '2px 0 4px 0' }}>
+                {featuredBook.title}
+              </h3>
+              <p style={{ fontSize: '0.82rem', color: '#475569', margin: 0, fontStyle: 'italic' }}>
+                Author: {featuredBook.author} • {featuredBook.pageCount || 1} Pages • {featuredBook.viewCount || 0} Readers
+              </p>
             </div>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              {featuredBook.pageCount || 1} Pages
-            </span>
-          </div>
 
-          <div>
-            <span style={{
-              display: 'inline-block',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: 'var(--color-emerald-light)',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              padding: '3px 10px',
-              borderRadius: 6,
-              marginBottom: '0.6rem'
-            }}>
-              {featuredBook.categoryName}
-            </span>
-            <h3 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '0.5rem', fontWeight: 700 }}>
-              Live Streaming Engine
-            </h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-              HTTP 206 chunked byte-range architecture serves high-resolution documents with zero initial delay.
-            </p>
-            <div style={{ display: 'flex', gap: '1.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Eye size={14} color="var(--color-emerald-light)" /> {featuredBook.viewCount || 0} Reads
-              </span>
-              <span>Year: {featuredBook.publishedYear || 2026}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => onReadBook && onReadBook(featuredBook)}
+                style={{ padding: '0.55rem 1.25rem' }}
+              >
+                <BookOpen size={15} />
+                <span>Read Full Text</span>
+              </button>
+
+              <button
+                className="btn btn-outline"
+                style={{
+                  color: '#002147',
+                  borderColor: '#cbd5e1',
+                  background: '#f8fafc',
+                  padding: '0.55rem 0.85rem'
+                }}
+                onClick={() => onToggleBookmark && onToggleBookmark(featuredBook.id)}
+                title={isBookmarked ? 'Remove Bookmark' : 'Save to Bookshelf'}
+              >
+                <Bookmark
+                  size={16}
+                  fill={isBookmarked ? '#d97706' : 'none'}
+                  color={isBookmarked ? '#d97706' : 'currentColor'}
+                />
+              </button>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

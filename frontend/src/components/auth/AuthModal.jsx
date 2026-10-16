@@ -51,8 +51,8 @@ export default function AuthModal({ onClose, onLoginSuccess, initialMode = 'logi
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <h3 style={{ fontSize: '1.3rem', color: '#ffffff', fontWeight: 800 }}>
-            {isRegister ? "Join Sourav's Library" : "Sign in to Sourav's Library"}
+          <h3 style={{ fontSize: '1.3rem', color: 'var(--color-ndli-navy)', fontWeight: 800 }}>
+            {isRegister ? "Join National Digital Library" : "Sign in to Digital Library"}
           </h3>
           <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
             <X size={20} />
@@ -140,10 +140,10 @@ export default function AuthModal({ onClose, onLoginSuccess, initialMode = 'logi
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-accent"
+            className="btn btn-primary"
             style={{ width: '100%', padding: '0.75rem', marginTop: '0.5rem', fontSize: '0.95rem' }}
           >
-            {loading ? 'Processing...' : isRegister ? 'Create Account' : 'Sign In'}
+            {loading ? 'Processing...' : isRegister ? 'Create Free Reader Account' : 'Sign In'}
           </button>
         </form>
 
@@ -153,7 +153,7 @@ export default function AuthModal({ onClose, onLoginSuccess, initialMode = 'logi
               Already have an account?{' '}
               <button
                 type="button"
-                style={{ color: 'var(--color-accent)', fontWeight: 700 }}
+                style={{ color: 'var(--color-ndli-green)', fontWeight: 700 }}
                 onClick={() => setIsRegister(false)}
               >
                 Sign In
@@ -161,10 +161,10 @@ export default function AuthModal({ onClose, onLoginSuccess, initialMode = 'logi
             </span>
           ) : (
             <span>
-              New to Sourav's Library?{' '}
+              New to the Repository?{' '}
               <button
                 type="button"
-                style={{ color: 'var(--color-emerald-light)', fontWeight: 700 }}
+                style={{ color: 'var(--color-ndli-green)', fontWeight: 700 }}
                 onClick={() => setIsRegister(true)}
               >
                 Create an account

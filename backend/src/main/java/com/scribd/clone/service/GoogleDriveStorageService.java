@@ -110,24 +110,47 @@ public class GoogleDriveStorageService {
 
             if (resolvedClientId != null && resolvedClientSecret != null && resolvedRefreshToken != null
                     && !resolvedClientId.isBlank() && !resolvedClientSecret.isBlank() && !resolvedRefreshToken.isBlank()) {
-                credentials = com.google.auth.oauth2.UserCredentials.newBuilder()
-                        .setClientId(resolvedClientId)
-                        .setClientSecret(resolvedClientSecret)
-                        .setRefreshToken(resolvedRefreshToken)
-                        .build();
-                log.info("Initializing Google Drive Cloud Storage via Personal Account OAuth 2.0 User Credentials (Personal @gmail.com storage quota).");
-            } else {
-                // 2. Service Account JSON fallback
-                InputStream credentialsStream = resolveCredentialsStream();
-                if (credentialsStream == null) {
-                    log.warn("Google Drive credentials not found. Google Drive storage will be unavailable.");
-                    return;
-                }
+                try {
+                    credentials = com.google.auth.oauth2.UserCredentials.newBuilder()
+                            .setClientId(resolvedClientId)
+                            .setClientSecret(resolvedClientSecret)
+                            .setRefreshToken(resolvedRefreshToken)
+                            .build();
+                    log.info("Attempting Google Drive connection via Personal Account OAuth 2.0 User Credentials...");
 
-                credentials = GoogleCredentials.fromStream(credentialsStream)
-                        .createScoped(Collections.singletonList(DriveScopes.DRIVE));
-                log.info("Initializing Google Drive Cloud Storage via Service Account credentials.");
+                    this.driveClient = new Drive.Builder(
+                            GoogleNetHttpTransport.newTrustedTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            new HttpCredentialsAdapter(credentials)
+                    ).setApplicationName(APPLICATION_NAME).build();
+
+                    File targetFolder = driveClient.files().get(this.folderId)
+                            .setFields("id, name, mimeType, driveId, capabilities")
+                            .setSupportsAllDrives(true)
+                            .execute();
+
+                    this.isReady = true;
+                    log.info("Successfully connected to Google Drive Cloud Storage via OAuth2! Folder: '{}' (ID: {})",
+                            targetFolder.getName(), targetFolder.getId());
+                    return;
+                } catch (Exception oauthEx) {
+                    log.warn("OAuth 2.0 connection failed (e.g. invalid_grant or expired refresh token): {}. Falling back to Service Account...",
+                            oauthEx.getMessage());
+                    this.driveClient = null;
+                    this.isReady = false;
+                }
             }
+
+            // 2. Service Account JSON fallback
+            InputStream credentialsStream = resolveCredentialsStream();
+            if (credentialsStream == null) {
+                log.warn("Google Drive Service Account credentials not found. Google Drive storage will be unavailable.");
+                return;
+            }
+
+            credentials = GoogleCredentials.fromStream(credentialsStream)
+                    .createScoped(Collections.singletonList(DriveScopes.DRIVE));
+            log.info("Initializing Google Drive Cloud Storage via Service Account credentials.");
 
             this.driveClient = new Drive.Builder(
                     GoogleNetHttpTransport.newTrustedTransport(),

@@ -183,12 +183,12 @@ export default function PdfUploadModal({
         {/* Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div className="modal-icon-badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: 'var(--color-emerald-light)' }}>
+            <div className="modal-icon-badge" style={{ background: 'rgba(13, 119, 81, 0.12)', color: 'var(--color-ndli-green)' }}>
               <Upload size={20} />
             </div>
             <div>
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>Upload PDF Book or Document</span>
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-ndli-navy)' }}>
+                <span>Upload PDF Document / Publication</span>
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -196,9 +196,9 @@ export default function PdfUploadModal({
                   fontSize: '0.72rem',
                   padding: '2px 8px',
                   borderRadius: 999,
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  color: 'var(--color-emerald-light)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)'
+                  background: 'rgba(13, 119, 81, 0.1)',
+                  color: 'var(--color-ndli-green)',
+                  border: '1px solid rgba(13, 119, 81, 0.25)'
                 }}>
                   <Cloud size={11} /> Cloud Storage
                 </span>
@@ -477,9 +477,10 @@ export default function PdfUploadModal({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 8,
-                background: 'linear-gradient(135deg, var(--color-emerald-light, #10b981) 0%, #059669 100%)',
+                background: 'var(--color-ndli-green)',
                 color: '#fff',
-                fontWeight: 700
+                fontWeight: 600,
+                borderRadius: '4px'
               }}
             >
               {isSubmitting ? (
@@ -490,7 +491,7 @@ export default function PdfUploadModal({
               ) : (
                 <>
                   <Cloud size={16} />
-                  <span>Upload & Sync with Drive</span>
+                  <span>Upload & Archive to Drive</span>
                 </>
               )}
             </button>
@@ -500,13 +501,13 @@ export default function PdfUploadModal({
               textAlign: 'center',
               marginTop: '0.85rem',
               fontSize: '0.78rem',
-              color: 'var(--color-emerald-light)',
+              color: 'var(--color-ndli-green)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6
             }}>
-              <span>{uploadStatus || `Transferring ${pdfFile ? formatFileSize(pdfFile.size) : 'document'} directly to Google Drive cloud storage. Please wait...`}</span>
+              <span>{uploadStatus || `Transferring ${pdfFile ? formatFileSize(pdfFile.size) : 'document'} directly to cloud archive. Please wait...`}</span>
             </div>
           )}
         </form>

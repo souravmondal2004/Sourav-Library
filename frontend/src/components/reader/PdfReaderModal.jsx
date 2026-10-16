@@ -16,7 +16,7 @@ import {
   RotateCw,
   AlertCircle
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, getStoredUser } from '../../services/api';
 
 // High-performance client-side cache for loaded PDF document buffers across modal sessions
 const globalPdfBufferCache = new Map();
@@ -100,18 +100,22 @@ export default function PdfReaderModal({
   const isTextMode = book.pages && book.pages.length > 0;
   const streamUrl = api.documents.getStreamUrl(book.id);
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    const downloadUrl = api.documents.getDownloadUrl(book.id);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.setAttribute('download', book.originalFilename || `${book.title}.pdf`);
-    link.setAttribute('target', '_blank');
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      if (document.body.contains(link)) document.body.removeChild(link);
-    }, 200);
+    const user = getStoredUser();
+    if (!user) {
+      window.dispatchEvent(new CustomEvent('scribd-open-auth', { detail: 'login' }));
+      return;
+    }
+    try {
+      await api.documents.download(book);
+    } catch (err) {
+      if (err.message && err.message.includes('sign in')) {
+        window.dispatchEvent(new CustomEvent('scribd-open-auth', { detail: 'login' }));
+      } else {
+        alert('Download failed: ' + err.message);
+      }
+    }
   };
 
   // Load PDF document using PDF.js when opening an uploaded file

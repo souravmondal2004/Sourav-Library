@@ -22,6 +22,7 @@ import {
   Search,
   RefreshCw,
   Database,
+  Cloud,
   X
 } from 'lucide-react';
 import { api, getStoredUsers } from '../../services/api';
@@ -78,6 +79,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
   const [creatingCat, setCreatingCat] = useState(false);
+  const [syncingCategories, setSyncingCategories] = useState(false);
 
   // User Activity & Audit State
   const [userLogs, setUserLogs] = useState(INITIAL_USER_LOGS);
@@ -343,19 +345,52 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
     e.preventDefault();
     if (!newCatName.trim()) return;
     setCreatingCat(true);
+    const catName = newCatName.trim();
     try {
       await api.categories.create({
-        name: newCatName.trim(),
+        name: catName,
         description: newCatDesc.trim()
       });
       setNewCatName('');
       setNewCatDesc('');
       onRefreshCategories();
-      setMessage({ type: 'success', text: 'New category created successfully.' });
+      setMessage({
+        type: 'success',
+        text: `Category "${catName}" created and synced to Google Drive Cloud Storage (categories_catalog.json)!`
+      });
     } catch (err) {
       alert('Failed to create category: ' + err.message);
     } finally {
       setCreatingCat(false);
+    }
+  };
+
+  const handleManualCategorySync = async () => {
+    setSyncingCategories(true);
+    try {
+      const res = await api.categories.syncWithDrive();
+      onRefreshCategories();
+      setMessage({
+        type: 'success',
+        text: res?.message || 'Categories successfully synchronized with Google Drive cloud storage!'
+      });
+    } catch (err) {
+      alert('Failed to sync categories with Google Drive: ' + err.message);
+    } finally {
+      setSyncingCategories(false);
+    }
+  };
+
+  const handleDeleteCategory = async (cat) => {
+    if (!window.confirm(`Are you sure you want to delete category "${cat.name}"? Any books under this category will be preserved and reassigned.`)) {
+      return;
+    }
+    try {
+      await api.categories.delete(cat.id);
+      onRefreshCategories();
+      setMessage({ type: 'success', text: `Category "${cat.name}" deleted and synced to Google Drive.` });
+    } catch (err) {
+      alert('Failed to delete category: ' + err.message);
     }
   };
 
@@ -863,10 +898,43 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
       {/* Tab 3: Categories */}
       {activeTab === 'categories' && (
         <div className="upload-card">
-          <h3 style={{ marginBottom: '0.5rem' }}>Create New Category</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
-            Categories help readers filter and discover books in the Scribd catalog.
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ marginBottom: '0.4rem' }}>Create New Category</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Categories help readers filter and discover books in the Scribd catalog.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleManualCategorySync}
+              disabled={syncingCategories}
+              style={{ fontSize: '0.82rem', padding: '0.45rem 0.85rem' }}
+              title="Force sync categories with Google Drive cloud storage"
+            >
+              <Cloud size={15} className={syncingCategories ? 'spin-animation' : ''} />
+              {syncingCategories ? 'Syncing Drive...' : 'Sync with Google Drive'}
+            </button>
+          </div>
+
+          <div style={{
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: 8,
+            padding: '0.75rem 1rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.82rem',
+            color: 'var(--color-emerald-light)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem'
+          }}>
+            <Cloud size={18} style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Google Drive Cloud Storage:</strong> All categories are automatically preserved in <code>categories_catalog.json</code> in your Google Drive cloud folder (1ZwKXAE2dM9JmJIGl2HZap1RiW9CSeVPS). Categories will never be lost on server restart.
+            </div>
+          </div>
 
           <form onSubmit={handleCreateCategory}>
             <div className="form-group">
@@ -893,23 +961,65 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
             </div>
 
             <button type="submit" disabled={creatingCat} className="btn btn-primary">
-              <Plus size={16} /> Create Category
+              <Plus size={16} /> {creatingCat ? 'Saving to Drive...' : 'Create & Save to Google Drive'}
             </button>
           </form>
 
-          <h4 style={{ marginTop: '2rem', marginBottom: '1rem' }}>Existing Categories ({categories.length})</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
-            {categories.map((c) => (
-              <div key={c.id} style={{
-                background: 'var(--bg-subtle)',
-                padding: '0.75rem',
-                borderRadius: 8,
-                border: '1px solid var(--border-color)'
-              }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-primary)' }}>{c.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{c.description || 'No description'}</div>
-              </div>
-            ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2.5rem', marginBottom: '1rem' }}>
+            <h4 style={{ margin: 0 }}>Existing Categories ({categories.length})</h4>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Saved in Google Drive Cloud Backup
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+            {categories.map((c) => {
+              const isDefault = ['technology-coding', 'business-leadership', 'science-engineering', 'literature-fiction', 'personal-growth', 'academic-research'].includes(c.slug);
+              return (
+                <div key={c.id} style={{
+                  background: 'var(--bg-subtle)',
+                  padding: '0.85rem',
+                  borderRadius: 8,
+                  border: '1px solid var(--border-color)',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-primary)' }}>{c.name}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(c)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#fb7185',
+                          cursor: 'pointer',
+                          padding: 2,
+                          opacity: 0.75
+                        }}
+                        title={`Delete category "${c.name}"`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                      {c.description || 'No description'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>slug: {c.slug}</span>
+                    {isDefault && (
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--color-primary)', padding: '1px 6px', borderRadius: 4 }}>
+                        Default
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

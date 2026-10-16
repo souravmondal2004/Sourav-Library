@@ -27,6 +27,8 @@ services:
         sync: false
       - key: GOOGLE_DRIVE_FOLDER_ID
         value: 1ZwKXAE2dM9JmJIGl2HZap1RiW9CSeVPS
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
       - key: SCRIBD_STORAGE_GOOGLE_DRIVE_ENABLED
         value: "true"
 

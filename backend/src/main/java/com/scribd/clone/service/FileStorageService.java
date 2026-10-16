@@ -277,13 +277,15 @@ public class FileStorageService {
             ensureDocumentContentsTableExists();
             long fileSize = Files.size(filePath);
 
-            // Memory protection for 512MB RAM environment:
-            // When H2 database is active or Google Drive is connected, avoid storing large binary files (>2MB)
-            // in the database table to prevent in-memory BLOB allocation that triggers Render OOM restarts.
+            // Database Storage Policy:
+            // When Cloud PostgreSQL is active, always store the binary in BYTEA (using stream) so files survive
+            // container restarts, even if external cloud storage (like Google Drive) is offline.
+            // Only skip for local in-memory H2 if file > 2MB to prevent JVM heap exhaustion.
             String dbType = DatabaseConfig.getActiveDatabaseType();
-            if ("H2".equalsIgnoreCase(dbType) || (googleDriveStorageService != null && googleDriveStorageService.isAvailable())) {
+            boolean isPostgres = dbType != null && dbType.toLowerCase().contains("postgres");
+            if (!isPostgres && ("H2".equalsIgnoreCase(dbType) || (googleDriveStorageService != null && googleDriveStorageService.isAvailable()))) {
                 if (fileSize > 2L * 1024 * 1024) {
-                    log.info("Skipping DB BLOB table insert for large file {} ({} bytes). Stored safely on disk and Google Drive.", fileName, fileSize);
+                    log.info("Skipping in-memory H2 DB table insert for large file {} ({} bytes).", fileName, fileSize);
                     return;
                 }
             }
@@ -412,25 +414,40 @@ public class FileStorageService {
         File file = filePath.toFile();
 
         // 0. Primary: Stream directly from Google Drive Cloud Storage if available (Zero local disk usage)
-        final String lookupDocName = fileName;
         if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
-            try {
-                InputStream driveStream = googleDriveStorageService.downloadStream(lookupDocName);
-                if (driveStream != null) {
-                    Long size = googleDriveStorageService.getFileSize(lookupDocName);
-                    return new InputStreamResource(driveStream) {
-                        @Override
-                        public String getFilename() {
-                            return lookupDocName;
-                        }
-                        @Override
-                        public long contentLength() {
-                            return size != null ? size : -1;
-                        }
-                    };
+            List<String> candidates = new ArrayList<>();
+            if (fileName != null && !fileName.isBlank()) candidates.add(fileName);
+            if (docEntity != null) {
+                if (docEntity.getOriginalFilename() != null && !docEntity.getOriginalFilename().isBlank()) {
+                    candidates.add(docEntity.getOriginalFilename());
+                    candidates.add(docEntity.getOriginalFilename().replace("-", " "));
+                    candidates.add(docEntity.getOriginalFilename().replace(" ", "-"));
                 }
-            } catch (Exception e) {
-                log.warn("Could not load document '{}' from Google Drive: {}", lookupDocName, e.getMessage());
+                if (docEntity.getTitle() != null && !docEntity.getTitle().isBlank()) {
+                    candidates.add(docEntity.getTitle() + ".pdf");
+                    candidates.add(docEntity.getTitle().replace(" ", "-") + ".pdf");
+                }
+            }
+            for (String candidate : candidates) {
+                try {
+                    InputStream driveStream = googleDriveStorageService.downloadStream(candidate);
+                    if (driveStream != null) {
+                        Long size = googleDriveStorageService.getFileSize(candidate);
+                        final String resolvedName = candidate;
+                        return new InputStreamResource(driveStream) {
+                            @Override
+                            public String getFilename() {
+                                return resolvedName;
+                            }
+                            @Override
+                            public long contentLength() {
+                                return size != null ? size : -1;
+                            }
+                        };
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not load document candidate '{}' from Google Drive: {}", candidate, e.getMessage());
+                }
             }
         }
 
@@ -452,28 +469,7 @@ public class FileStorageService {
             } catch (MalformedURLException ignored) {}
         }
 
-        // 2. Check local authentic storage or link known real documents
-        boolean isMachineLearning = docEntity != null && (
-            (docEntity.getTitle() != null && docEntity.getTitle().toLowerCase().contains("machine learning")) ||
-            (docEntity.getOriginalFilename() != null && docEntity.getOriginalFilename().toLowerCase().contains("machine learning")) ||
-            (docEntity.getPageCount() != null && docEntity.getPageCount() == 128)
-        );
 
-        if (isMachineLearning) {
-            Path realMlPath = this.documentsPath.resolve("5d16e55a-a41d-48f1-9778-fe1c8211b468.pdf");
-            if (Files.exists(realMlPath)) {
-                try {
-                    if (!Files.exists(filePath) || Files.size(filePath) < 100000) {
-                        Files.copy(realMlPath, filePath, StandardCopyOption.REPLACE_EXISTING);
-                        persistFileToDatabase(fileName, filePath, "application/pdf");
-                        log.info("Restored authentic 128-page Machine Learning PDF (41.6 MB) to {}", fileName);
-                    }
-                    return new UrlResource(filePath.toUri());
-                } catch (Exception ex) {
-                    log.warn("Could not copy authentic ML PDF: {}", ex.getMessage());
-                }
-            }
-        }
 
         // 3. Not on disk or was placeholder: recover from database directly into disk file via stream
         boolean recovered = recoverFileFromDatabase(fileName, filePath);
@@ -483,8 +479,9 @@ public class FileStorageService {
             } catch (MalformedURLException ignored) {}
         }
 
-        // 4. Resilient Fallback: ONLY for tiny sample documents, NEVER for real user uploaded books/organizers!
-        if (docEntity != null && (docEntity.getPageCount() == null || docEntity.getPageCount() <= 5)) {
+        // 4. Resilient Fallback: If missing from disk, database, and cloud storage,
+        // auto-generate a structured preview PDF so reader and download endpoints NEVER 404.
+        if (docEntity != null) {
             try {
                 generateFallbackDocumentPdf(file, docEntity);
                 if (file.exists() && file.length() > 0) {

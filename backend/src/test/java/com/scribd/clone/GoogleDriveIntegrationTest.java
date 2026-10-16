@@ -24,6 +24,9 @@ public class GoogleDriveIntegrationTest {
     @Autowired(required = false)
     private com.scribd.clone.service.VideoSyncService videoSyncService;
 
+    @Autowired(required = false)
+    private com.scribd.clone.service.CategorySyncService categorySyncService;
+
     @Test
     public void testVideoSyncWithGoogleDrive() {
         Assumptions.assumeTrue(videoSyncService != null && googleDriveStorageService != null && googleDriveStorageService.isAvailable(),
@@ -34,6 +37,30 @@ public class GoogleDriveIntegrationTest {
 
         int restored = videoSyncService.restoreVideosFromGoogleDrive();
         log.info("Test verified: successfully synced and checked {} videos in Google Drive.", restored);
+    }
+
+    @Test
+    public void testCategorySyncWithGoogleDrive() {
+        Assumptions.assumeTrue(categorySyncService != null && googleDriveStorageService != null && googleDriveStorageService.isAvailable(),
+                "Google Drive storage service is not available, skipping test.");
+
+        boolean synced = categorySyncService.syncCategoriesToGoogleDrive();
+        Assertions.assertTrue(synced, "Should successfully sync categories_catalog.json to Google Drive");
+
+        int restored = categorySyncService.restoreCategoriesFromGoogleDrive();
+        log.info("Test verified: successfully synced and checked {} categories in Google Drive.", restored);
+    }
+
+    @Test
+    public void listFilesInGoogleDrive() {
+        Assumptions.assumeTrue(googleDriveStorageService != null && googleDriveStorageService.isAvailable(),
+                "Google Drive storage service is not available, skipping test.");
+
+        var files = googleDriveStorageService.listAllFiles();
+        log.info("=== TOTAL FILES IN GOOGLE DRIVE: {} ===", files.size());
+        for (var f : files) {
+            log.info("  -> File: '{}' | ID: {} | Size: {} | Mime: {}", f.getName(), f.getId(), f.getSize(), f.getMimeType());
+        }
     }
 
     @Test

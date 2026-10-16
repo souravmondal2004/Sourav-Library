@@ -19,6 +19,9 @@ export const getApiBaseUrl = () => {
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:8080/api';
     }
+    if (host.startsWith('192.168.') || host.startsWith('10.') || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) {
+      return `http://${host}:8080/api`;
+    }
     return 'https://sourav-library.onrender.com/api';
   }
   return 'https://sourav-library.onrender.com/api';
@@ -380,7 +383,43 @@ export const api = {
     getDetails: (id) => request(`/documents/${id}`),
     getStreamUrl: (id) => `${API_BASE_URL}/documents/${id}/stream`,
     getCoverUrl: (id) => `${API_BASE_URL}/documents/${id}/cover`,
-    getDownloadUrl: (id) => `${API_BASE_URL}/documents/${id}/download`,
+    getDownloadUrl: (id) => {
+      const token = getAuthToken();
+      const base = `${API_BASE_URL}/documents/${id}/download`;
+      return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+    },
+    download: async (book) => {
+      const user = getStoredUser();
+      const token = getAuthToken();
+      if (!user && !token) {
+        window.dispatchEvent(new CustomEvent('scribd-open-auth', { detail: 'login' }));
+        throw new Error('Please sign in to download this PDF book.');
+      }
+      const url = `${API_BASE_URL}/documents/${book.id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const response = await fetch(url, { headers });
+      if (response.status === 401 || response.status === 403) {
+        window.dispatchEvent(new CustomEvent('scribd-open-auth', { detail: 'login' }));
+        throw new Error('Please sign in to download this PDF book.');
+      }
+      if (!response.ok) {
+        throw new Error(`Download failed with HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = book.originalFilename || `${book.title || 'document'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (document.body.contains(a)) document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+      return true;
+    },
     upload: async (formData) => {
       let token = getAuthToken();
       const user = getStoredUser();
@@ -493,7 +532,48 @@ export const api = {
       return INITIAL_CATEGORIES;
     },
     getById: (id) => request(`/categories/${id}`),
-    create: (data) => request('/categories', { method: 'POST', body: data })
+    create: async (data) => {
+      let created = null;
+      try {
+        created = await request('/categories', { method: 'POST', body: data });
+      } catch (err) {
+        // Fallback for offline or local preview
+        created = {
+          id: Date.now(),
+          name: data.name,
+          slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+          description: data.description || '',
+          icon: data.icon || 'book'
+        };
+      }
+      // Immediately preserve in browser localStorage so it is never removed
+      try {
+        const stored = localStorage.getItem('scribd_cached_categories');
+        let list = stored ? JSON.parse(stored) : [...INITIAL_CATEGORIES];
+        if (!list.some(c => c.name?.toLowerCase() === created.name?.toLowerCase() || c.id === created.id)) {
+          list.push(created);
+          localStorage.setItem('scribd_cached_categories', JSON.stringify(list));
+        }
+      } catch (e) {}
+      return created;
+    },
+    delete: async (id) => {
+      let res = null;
+      try {
+        res = await request(`/categories/${id}`, { method: 'DELETE' });
+      } catch (err) {}
+      // Immediately remove from localStorage cache
+      try {
+        const stored = localStorage.getItem('scribd_cached_categories');
+        if (stored) {
+          let list = JSON.parse(stored);
+          list = list.filter(c => c.id !== id);
+          localStorage.setItem('scribd_cached_categories', JSON.stringify(list));
+        }
+      } catch (e) {}
+      return res || { success: true };
+    },
+    syncWithDrive: () => request('/categories/sync', { method: 'POST' })
   },
 
   // Admin Channel

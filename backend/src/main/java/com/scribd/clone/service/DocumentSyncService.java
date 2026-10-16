@@ -48,24 +48,31 @@ public class DocumentSyncService {
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final GoogleDriveStorageService googleDriveStorageService;
+    private final CategorySyncService categorySyncService;
     private final ObjectMapper objectMapper;
 
     public DocumentSyncService(
             DocumentRepository documentRepository,
             CategoryRepository categoryRepository,
             UserRepository userRepository,
-            GoogleDriveStorageService googleDriveStorageService
+            GoogleDriveStorageService googleDriveStorageService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) CategorySyncService categorySyncService
     ) {
         this.documentRepository = documentRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
         this.googleDriveStorageService = googleDriveStorageService;
+        this.categorySyncService = categorySyncService;
         this.objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
     }
 
     @EventListener(ApplicationReadyEvent.class)
+    @org.springframework.core.annotation.Order(2)
     public void onApplicationReady() {
         log.info("Initiating Document & PDF Cloud Sync with Google Drive...");
+        if (categorySyncService != null) {
+            categorySyncService.restoreCategoriesFromGoogleDrive();
+        }
         restoreDocumentsFromGoogleDrive();
         archiveBundledBooksToGoogleDrive();
     }
@@ -116,6 +123,9 @@ public class DocumentSyncService {
      * If DB has fewer documents than the Google Drive catalog, it automatically restores missing ones.
      */
     public synchronized int restoreDocumentsFromGoogleDrive() {
+        if (categorySyncService != null) {
+            categorySyncService.restoreCategoriesFromGoogleDrive();
+        }
         List<DocumentResponseDto> restoredList = null;
 
         // Tier 1: Restore directly from Google Drive Cloud Storage
