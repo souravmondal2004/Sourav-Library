@@ -14,7 +14,7 @@ import VideoPlayerView from './components/video/VideoPlayerView';
 import SouravAIChat from './components/ai/SouravAIChat';
 import { videoService } from './services/videoService';
 import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategories, getCachedFeatured } from './services/api';
-import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2, Info, ShieldCheck, GraduationCap, Headphones, FileText, Globe, Landmark } from 'lucide-react';
+import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2, Info, ShieldCheck, GraduationCap, Headphones, FileText, Globe, Landmark, Layers } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
 
