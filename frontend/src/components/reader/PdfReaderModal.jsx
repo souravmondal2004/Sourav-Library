@@ -620,6 +620,38 @@ export default function PdfReaderModal({
             />
           </div>
 
+          {/* Quick Floating Zoom Dock for Mobile (Always accessible when reading) */}
+          <div className="reader-floating-zoom-dock">
+            <button
+              type="button"
+              className="reader-floating-zoom-btn"
+              onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+              title="Zoom Out (-)"
+              aria-label="Zoom out"
+            >
+              <ZoomOut size={16} strokeWidth={2.4} />
+            </button>
+
+            <button
+              type="button"
+              className="reader-floating-zoom-label"
+              onClick={() => setZoomLevel(100)}
+              title="Reset Zoom to 100%"
+            >
+              {zoomLevel}%
+            </button>
+
+            <button
+              type="button"
+              className="reader-floating-zoom-btn"
+              onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
+              title="Zoom In (+)"
+              aria-label="Zoom in"
+            >
+              <ZoomIn size={16} strokeWidth={2.4} />
+            </button>
+          </div>
+
           {isTextMode ? (
             /* Structured Text/Chapter Reading View */
             <div
@@ -783,10 +815,38 @@ export default function PdfReaderModal({
                   <ChevronLeft size={16} /> Previous Page
                 </button>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                   <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
                     Page {currentPage} of {totalPages} ({Math.round((currentPage / totalPages) * 100)}%)
                   </span>
+
+                  {/* Zoom Controls inside Bottom Bar */}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', background: 'rgba(128, 128, 128, 0.1)', padding: '2px', borderRadius: '8px' }}>
+                    <button
+                      className="btn reader-tool-btn"
+                      style={{ padding: '0.2rem 0.45rem', minHeight: 28, fontSize: '0.75rem' }}
+                      onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+                      title="Zoom Out (-)"
+                    >
+                      <ZoomOut size={14} strokeWidth={2.4} />
+                    </button>
+                    <button
+                      className="reader-zoom-indicator"
+                      style={{ minWidth: 46, padding: '0.2rem 0.45rem', minHeight: 28, fontSize: '0.75rem' }}
+                      onClick={() => setZoomLevel(100)}
+                      title="Reset Zoom to 100%"
+                    >
+                      {zoomLevel}%
+                    </button>
+                    <button
+                      className="btn reader-tool-btn"
+                      style={{ padding: '0.2rem 0.45rem', minHeight: 28, fontSize: '0.75rem' }}
+                      onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
+                      title="Zoom In (+)"
+                    >
+                      <ZoomIn size={14} strokeWidth={2.4} />
+                    </button>
+                  </div>
 
                   <button
                     className="btn btn-outline"
