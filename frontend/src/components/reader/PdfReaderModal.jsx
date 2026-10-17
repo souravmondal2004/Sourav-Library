@@ -489,104 +489,92 @@ export default function PdfReaderModal({
               </button>
             </div>
 
-            {/* Rotate Document button (Universal: Visible on both mobile and desktop) */}
+            {/* Rotate Document button */}
             <button
-              className="btn btn-outline"
-              style={{
-                padding: '0.4rem 0.55rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                borderColor: rotation > 0 ? 'var(--primary, #00d287)' : 'rgba(128, 128, 128, 0.3)',
-                color: rotation > 0 ? 'var(--primary, #00d287)' : 'inherit',
-                fontWeight: 600,
-                fontSize: '0.78rem'
-              }}
+              type="button"
+              className="btn reader-tool-btn"
               onClick={() => setRotation((r) => (r + 90) % 360)}
               title={`Rotate 90° Clockwise (Current: ${rotation}°)`}
             >
-              <RotateCw size={16} />
+              <RotateCw size={16} strokeWidth={2.2} />
               <span className="rotate-btn-text" style={{ fontSize: '0.75rem' }}>
                 {rotation > 0 ? `${rotation}°` : 'Rotate'}
               </span>
             </button>
 
-            {/* Bookmark (Always visible on mobile & desktop) */}
+            {/* Bookmark button */}
             <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
+              type="button"
+              className={`btn reader-tool-btn ${isBookmarked ? 'reader-bookmarked' : ''}`}
               onClick={() => onToggleBookmark(book.id)}
               title={isBookmarked ? 'Remove Bookmark' : 'Bookmark this Document'}
             >
               <Bookmark
                 size={16}
-                fill={isBookmarked ? '#ff5e36' : 'transparent'}
-                color={isBookmarked ? '#ff5e36' : 'currentColor'}
+                strokeWidth={2.2}
+                fill={isBookmarked ? '#f59e0b' : 'transparent'}
+                color={isBookmarked ? '#f59e0b' : 'currentColor'}
               />
             </button>
 
-            {/* Desktop Only Tools (Zoom, Download, Full Tab, Fullscreen) */}
-            <div className="reader-desktop-tools" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            {/* Desktop Tools (Zoom, Download, Open Tab, Fullscreen) */}
+            <div className="reader-desktop-tools" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
               <button
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
+                type="button"
+                className="btn reader-tool-btn"
                 onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
                 title="Zoom Out"
               >
-                <ZoomOut size={16} />
+                <ZoomOut size={16} strokeWidth={2.2} />
               </button>
               <button
+                type="button"
+                className="reader-zoom-indicator"
                 onClick={() => setZoomLevel(100)}
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  minWidth: 38,
-                  textAlign: 'center',
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer'
-                }}
                 title="Reset Zoom to 100%"
               >
                 {zoomLevel}%
               </button>
               <button
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
+                type="button"
+                className="btn reader-tool-btn"
                 onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
                 title="Zoom In"
               >
-                <ZoomIn size={16} />
+                <ZoomIn size={16} strokeWidth={2.2} />
               </button>
 
+              {/* Download Document Button */}
               <button
+                type="button"
                 onClick={handleDownload}
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
-                title="Download Document"
+                className="btn reader-tool-btn reader-highlight-btn"
+                title="Download PDF to your device"
               >
-                <Download size={16} />
+                <Download size={16} strokeWidth={2.4} />
+                <span className="reader-btn-label">Download</span>
               </button>
 
+              {/* Open in New Tab Button */}
               <a
                 href={streamUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
-                title="Open Document in Full Tab"
+                className="btn reader-tool-btn reader-highlight-btn"
+                title="Open PDF directly in a new browser tab"
               >
-                <ExternalLink size={16} />
+                <ExternalLink size={16} strokeWidth={2.4} />
+                <span className="reader-btn-label">Open Full</span>
               </a>
 
+              {/* Fullscreen Button */}
               <button
-                className="btn btn-outline"
-                style={{ padding: '0.4rem' }}
+                type="button"
+                className="btn reader-tool-btn"
                 onClick={toggleFullscreen}
                 title="Toggle Fullscreen"
               >
-                <Maximize size={16} />
+                <Maximize size={16} strokeWidth={2.2} />
               </button>
             </div>
           </div>

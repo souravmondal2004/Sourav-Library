@@ -1,11 +1,11 @@
 import React from 'react';
-import { BookOpen, Bookmark, Eye, Download, FileText, Trash2, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Bookmark, Eye, Download, Trash2, CheckCircle2 } from 'lucide-react';
 import { api, getStoredUser } from '../../services/api';
 
 // Global in-memory cache for cover image load state
 const coverStatusCache = new Map();
 
-export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked, onDelete, currentUser, onRequireAuth }) {
+export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked, onDelete, currentUser, onRequireAuth, t }) {
   const cachedStatus = coverStatusCache.get(book.id);
   const [hasCoverImg, setHasCoverImg] = React.useState(cachedStatus === 'loaded');
   const [coverFailed, setCoverFailed] = React.useState(cachedStatus === 'failed');
@@ -42,16 +42,16 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
     }
   };
 
-  // Authoritative institutional background palettes (NDLI government library style)
-  const institutionalGradients = [
-    'linear-gradient(135deg, #002147 0%, #0b3056 100%)', // Indian Gov / NDLI Navy
-    'linear-gradient(135deg, #064e3b 0%, #0d7751 100%)', // Forest Academic Green
-    'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)', // Deep Oxford Blue
-    'linear-gradient(135deg, #451a03 0%, #78350f 100%)', // Warm Cedar / Archive Amber
-    'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', // Classical Slate
-    'linear-gradient(135deg, #701a75 0%, #4a044e 100%)'  // Royal Scholarly Plum
+  // Modern American Navy / Dark Gradients for procedural fallback covers
+  const coverGradients = [
+    'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', // Deep Navy to Royal Blue
+    'linear-gradient(135deg, #090d16 0%, #1e293b 100%)', // Midnight Black to Slate
+    'linear-gradient(135deg, #172554 0%, #1d4ed8 100%)', // Electric Sapphire
+    'linear-gradient(135deg, #030712 0%, #111827 100%)', // Pure Charcoal Black
+    'linear-gradient(135deg, #0f2027 0%, #203a43 100%)', // Dark Cyan Petrol
+    'linear-gradient(135deg, #18181b 0%, #27272a 100%)'  // Modern Zinc
   ];
-  const bgGradient = institutionalGradients[(book.id || 1) % institutionalGradients.length];
+  const bgGradient = coverGradients[(book.id || 1) % coverGradients.length];
 
   const handleImageLoad = () => {
     coverStatusCache.set(book.id, 'loaded');
@@ -64,7 +64,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
   };
 
   return (
-    <div className="book-card">
+    <div className="book-card" onClick={() => onRead(book)}>
       <div className="book-card-cover-container" style={{ background: bgGradient }}>
         {!coverFailed && (
           <img
@@ -85,20 +85,20 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
         )}
 
         {book.isFeatured && (
-          <span className="book-badge-featured">SPOTLIGHT</span>
+          <span className="book-badge-featured">{t?.featured || 'FEATURED'}</span>
         )}
 
-        {/* Academic Open Access Tag */}
+        {/* Format Tag */}
         <span className="book-card-format-tag">
-          OPEN ACCESS PDF
+          PDF
         </span>
 
-        {/* Fallback procedural academic book cover (Realistic human-crafted typography) */}
+        {/* Fallback procedural cover */}
         <div className="book-card-procedural-cover" style={{ display: hasCoverImg ? 'none' : 'flex' }}>
           <div className="book-card-procedural-spine" />
           <div>
             <div className="book-card-procedural-tag">
-              {book.categoryName || 'National Repository'}
+              {book.categoryName || 'Digital Library'}
             </div>
             <div className="book-card-procedural-title">
               {book.title}
@@ -109,16 +109,16 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
           </div>
           <div className="book-card-procedural-footer">
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CheckCircle2 size={12} color="#6ee7b7" /> Verified Text
+              <CheckCircle2 size={12} color="#60a5fa" /> {t?.verifiedPdf || 'Verified PDF'}
             </span>
             <span>{book.publishedYear || 2026}</span>
           </div>
         </div>
 
-        {/* Quick Read Overlay */}
-        <div className="book-card-overlay" onClick={() => onRead(book)}>
+        {/* Quick Read Overlay (Desktop Hover) */}
+        <div className="book-card-overlay">
           <button type="button" className="book-card-read-btn">
-            <BookOpen size={16} /> Read Document
+            <BookOpen size={16} /> {t?.readNow || 'Read Now'}
           </button>
         </div>
 
@@ -130,41 +130,34 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
             e.stopPropagation();
             onToggleBookmark(book.id);
           }}
-          title={isBookmarked ? 'Remove from Bookshelf' : 'Save to Bookshelf'}
-          aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark this resource'}
+          title={isBookmarked ? (t?.removeFromBookshelf || 'Remove Bookmark') : (t?.saveToBookshelf || 'Save to Bookshelf')}
+          aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark this book'}
         >
-          <Bookmark size={15} fill={isBookmarked ? '#ffffff' : 'none'} color={isBookmarked ? '#ffffff' : '#002147'} />
+          <Bookmark size={15} fill={isBookmarked ? '#ffffff' : 'none'} color={isBookmarked ? '#ffffff' : '#ffffff'} />
         </button>
       </div>
 
-      <div className="book-card-body">
-        <span className="book-card-category">{book.categoryName || 'General Academic'}</span>
+      <div className="book-card-body" onClick={(e) => e.stopPropagation()}>
+        <span className="book-card-category">{book.categoryName || 'General'}</span>
         <h3 className="book-card-title" title={book.title} onClick={() => onRead(book)}>
           {book.title}
         </h3>
         <p className="book-card-author">by {book.author}</p>
 
-        {/* Quick Actions (Read + Download) */}
-        <div style={{ display: 'flex', gap: '0.45rem', marginTop: '0.5rem', marginBottom: '0.75rem' }}>
+        {/* Actions (Read + Download) */}
+        <div className="book-card-actions">
           <button
             type="button"
-            className="btn btn-primary"
-            style={{ flex: 1, padding: '0.45rem', fontSize: '0.82rem' }}
+            className="btn btn-primary book-read-action-btn"
             onClick={() => onRead(book)}
-            title="Read online in PDF reader"
+            title="Read in PDF Reader"
           >
             <BookOpen size={14} />
-            <span>Read Online</span>
+            <span>{t?.readOnline || 'Read'}</span>
           </button>
           <button
             type="button"
-            className="btn btn-outline"
-            style={{
-              padding: '0.45rem 0.65rem',
-              color: 'var(--color-ndli-navy)',
-              borderColor: 'var(--border-input)',
-              background: 'var(--bg-main)'
-            }}
+            className="btn btn-outline book-dl-action-btn"
             onClick={handleDownloadClick}
             disabled={downloading}
             title={currentUser ? 'Download PDF to device' : 'Sign in to download'}
@@ -174,13 +167,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
           {onDelete && (
             <button
               type="button"
-              className="btn btn-outline"
-              style={{
-                padding: '0.45rem 0.65rem',
-                borderColor: '#fca5a5',
-                color: '#dc2626',
-                background: '#fef2f2'
-              }}
+              className="btn btn-outline book-del-action-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(book.id, book.title);
@@ -195,10 +182,10 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
         {/* Metadata Footer */}
         <div className="book-card-meta">
           <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Eye size={13} color="var(--color-ndli-green)" /> {book.viewCount || 0} Reads
+            <Eye size={12} color="var(--color-accent)" /> {book.viewCount || 0}
           </span>
-          <span>{book.pageCount ? `${book.pageCount} Pages` : 'Full Text'}</span>
-          <span>Year: {book.publishedYear || 2026}</span>
+          <span>{book.pageCount ? `${book.pageCount} ${t?.pages || 'pgs'}` : 'PDF'}</span>
+          <span>{book.publishedYear || 2026}</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Sparkles, BookmarkCheck, Shield, User, LogIn, Upload } from 'lucide-react';
+import { BookOpen, Compass, BookmarkCheck, Shield, User, LogIn, Sparkles } from 'lucide-react';
 import YoutubeIcon from '../common/YoutubeIcon';
 
 export default function MobileBottomNav({
@@ -8,125 +8,124 @@ export default function MobileBottomNav({
   onSelectSection,
   onExplore,
   onOpenLibrary,
-  onOpenUploadPdf,
   currentUser,
   isAdmin,
   onToggleAdmin,
   onOpenAuth,
-  searchQuery
+  t
 }) {
   const isBooksActive = currentView === 'home' && currentSection === 'books';
-  const isVideosActive = currentSection === 'videos';
-  const isAIActive = currentSection === 'ai';
+  const isVideosActive = currentView === 'home' && currentSection === 'videos';
+  const isAIActive = currentView === 'home' && currentSection === 'ai';
   const isAdminActive = currentView === 'admin';
 
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
+      {/* 1. Books / Library */}
       <button
         type="button"
         className={`mobile-nav-item ${isBooksActive ? 'active' : ''}`}
         onClick={() => {
+          if (currentView !== 'home') onExplore();
           onSelectSection && onSelectSection('books');
-          onExplore();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
-        title="Books & Documents"
+        title={t?.navLibrary || "Books & Library"}
       >
         <div className="mobile-nav-icon-box">
-          <BookOpen size={19} strokeWidth={isBooksActive ? 2.5 : 2} />
+          <BookOpen size={20} strokeWidth={isBooksActive ? 2.5 : 1.8} />
+          {isBooksActive && <span className="mobile-nav-indicator" />}
         </div>
-        <span className="mobile-nav-label">Books</span>
+        <span className="mobile-nav-label">{t?.navLibrary || 'Library'}</span>
       </button>
 
+      {/* 2. Video Lectures Hub */}
       <button
         type="button"
         className={`mobile-nav-item video-nav-item ${isVideosActive ? 'active' : ''}`}
-        onClick={() => onSelectSection && onSelectSection('videos')}
-        title="Video Lectures Hub"
+        onClick={() => {
+          if (currentView !== 'home') onExplore();
+          onSelectSection && onSelectSection('videos');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        title={t?.navVideos || "Video Lectures"}
       >
         <div className="mobile-nav-icon-box">
-          <YoutubeIcon size={19} color={isVideosActive ? '#ffffff' : 'currentColor'} />
+          <YoutubeIcon size={20} color={isVideosActive ? 'var(--color-accent, #7c3aed)' : 'currentColor'} />
+          {isVideosActive && <span className="mobile-nav-indicator" />}
         </div>
-        <span className="mobile-nav-label">Video Hub</span>
+        <span className="mobile-nav-label">{t?.navVideos || 'Videos'}</span>
       </button>
 
-      {/* Upload button strictly for Admin */}
-      {isAdmin && (
-        <button
-          type="button"
-          className="mobile-nav-item"
-          onClick={onOpenUploadPdf}
-          title="Upload Resource"
-        >
-          <div className="mobile-nav-icon-box" style={{ background: '#0d7751', borderRadius: '50%', color: '#fff', width: 28, height: 28 }}>
-            <Upload size={16} strokeWidth={2.5} />
-          </div>
-          <span className="mobile-nav-label" style={{ color: '#0d7751', fontWeight: 700 }}>Upload</span>
-        </button>
-      )}
-
+      {/* 3. Center Highlight: Sourav AI */}
       <button
         type="button"
-        className={`mobile-nav-item ${isAIActive ? 'active' : ''}`}
-        onClick={() => onSelectSection && onSelectSection('ai')}
-        title="NDLI AI Knowledge Assistant"
+        className={`mobile-nav-item mobile-nav-ai ${isAIActive ? 'active' : ''}`}
+        onClick={() => {
+          if (currentView !== 'home') onExplore();
+          onSelectSection && onSelectSection('ai');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        title="Sourav AI Assistant"
       >
-        <div className="mobile-nav-icon-box">
-          <Sparkles size={19} color={isAIActive ? '#ff9933' : 'currentColor'} strokeWidth={isAIActive ? 2.5 : 2} />
+        <div className="mobile-nav-ai-pill">
+          <Sparkles size={18} strokeWidth={2.4} />
+          <span className="mobile-nav-ai-label">Sourav AI</span>
         </div>
-        <span className="mobile-nav-label">AI Tutor</span>
       </button>
 
+      {/* 4. Saved Bookshelf */}
       <button
         type="button"
         className="mobile-nav-item"
         onClick={onOpenLibrary}
-        title="Saved Bookshelf"
+        title={t?.navSaved || "Saved Bookshelf"}
       >
         <div className="mobile-nav-icon-box">
-          <BookmarkCheck size={19} />
+          <BookmarkCheck size={20} strokeWidth={1.8} />
         </div>
-        <span className="mobile-nav-label">Bookshelf</span>
+        <span className="mobile-nav-label">{t?.navSaved || 'Saved'}</span>
       </button>
 
-      {isAdmin && (
+      {/* 5. Admin or Account Profile */}
+      {isAdmin ? (
         <button
           type="button"
-          className={`mobile-nav-item mobile-nav-admin ${isAdminActive ? 'active' : ''}`}
+          className={`mobile-nav-item ${isAdminActive ? 'active' : ''}`}
           onClick={onToggleAdmin}
-          title="Admin Control"
+          title={t?.navAdmin || "Admin Dashboard"}
         >
           <div className="mobile-nav-icon-box">
-            <Shield size={19} strokeWidth={isAdminActive ? 2.5 : 2} />
+            <Shield size={20} strokeWidth={isAdminActive ? 2.5 : 1.8} />
+            {isAdminActive && <span className="mobile-nav-indicator" />}
           </div>
-          <span className="mobile-nav-label">Admin</span>
+          <span className="mobile-nav-label">{t?.navAdmin || 'Admin'}</span>
         </button>
-      )}
-
-      {currentUser ? (
+      ) : currentUser ? (
         <button
           type="button"
           className="mobile-nav-item"
           onClick={() => onOpenAuth('account')}
-          title="Profile & Settings"
+          title={t?.navAccount || "Account Profile"}
         >
           <div className="mobile-nav-icon-box">
-            <div className="mobile-user-avatar" style={{ width: 24, height: 24, fontSize: '0.7rem' }}>
+            <div className="mobile-avatar-badge">
               {currentUser.username ? currentUser.username.charAt(0).toUpperCase() : 'U'}
             </div>
           </div>
-          <span className="mobile-nav-label">Profile</span>
+          <span className="mobile-nav-label">{t?.navAccount || 'Account'}</span>
         </button>
       ) : (
         <button
           type="button"
           className="mobile-nav-item"
           onClick={() => onOpenAuth('login')}
-          title="Sign in to your account"
+          title={t?.signIn || "Sign In"}
         >
           <div className="mobile-nav-icon-box">
-            <LogIn size={19} />
+            <LogIn size={20} strokeWidth={1.8} />
           </div>
-          <span className="mobile-nav-label">Sign In</span>
+          <span className="mobile-nav-label">{t?.signIn || 'Sign In'}</span>
         </button>
       )}
     </nav>

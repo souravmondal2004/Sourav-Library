@@ -17,6 +17,7 @@ import { api, getStoredUser, getAuthToken, getCachedDocuments, getCachedCategori
 import { BookOpen, Sparkles, Compass, AlertCircle, Database, Shield, Code2, Server, Zap, Cpu, Search, RefreshCw, Radio, Tv, Video, Upload, Cloud, CheckCircle2, Info, ShieldCheck, GraduationCap, Headphones, FileText, Globe, Landmark, Layers } from 'lucide-react';
 
 import { INITIAL_CATEGORIES, INITIAL_DOCUMENTS } from './services/seedData';
+import { getTranslation, LANGUAGES } from './services/translations';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(getStoredUser());
@@ -34,29 +35,51 @@ export default function App() {
   const [error, setError] = useState(null);
   const [serverOnline, setServerOnline] = useState(true);
 
-  // NDLI Institutional Theme & Accessibility Scaling States
+  // Multi-Language State (English, Bengali, Hindi, Urdu)
+  const [language, setLanguage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sl-language') || 'en';
+    }
+    return 'en';
+  });
+  const t = getTranslation(language);
+
+  const handleSelectLanguage = (langCode) => {
+    setLanguage(langCode);
+    localStorage.setItem('sl-language', langCode);
+  };
+
+  useEffect(() => {
+    if (language === 'ur') {
+      document.documentElement.setAttribute('dir', 'rtl');
+    } else {
+      document.documentElement.setAttribute('dir', 'ltr');
+    }
+  }, [language]);
+
+  // Theme & Accessibility Scaling States
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('ndli-theme') || 'light';
+      return localStorage.getItem('sl-theme') || 'light';
     }
     return 'light';
   });
   const [fontScale, setFontScale] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('ndli-font-scale') || 'md';
+      return localStorage.getItem('sl-font-scale') || 'md';
     }
     return 'md';
   });
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ndli-theme', theme);
+    localStorage.setItem('sl-theme', theme);
   }, [theme]);
 
   useEffect(() => {
     document.documentElement.classList.remove('font-scale-sm', 'font-scale-md', 'font-scale-lg');
     document.documentElement.classList.add(`font-scale-${fontScale}`);
-    localStorage.setItem('ndli-font-scale', fontScale);
+    localStorage.setItem('sl-font-scale', fontScale);
   }, [fontScale]);
 
   const handleToggleTheme = () => {
@@ -413,6 +436,9 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         fontScale={fontScale}
         onChangeFontScale={handleChangeFontScale}
+        language={language}
+        onSelectLanguage={handleSelectLanguage}
+        t={t}
       />
 
       {/* Backend connection warning banner */}
@@ -494,7 +520,7 @@ export default function App() {
         </main>
       ) : (
         <main>
-          {/* NDLI Flagship Hero & Single-Window Search Section */}
+          {/* Hero & Search Section */}
           {!searchQuery && !selectedCategory && (
             <HeroBanner
               featuredBook={primaryFeatured}
@@ -506,10 +532,11 @@ export default function App() {
               setSearchQuery={setSearchQuery}
               onSelectCategory={setSelectedCategory}
               categories={categories}
+              t={t}
             />
           )}
 
-          {/* NDLI Institutional Stats Bar */}
+          {/* Stats Bar */}
           {!searchQuery && !selectedCategory && (
             <div className="ndli-stats-strip">
               <div className="container ndli-stats-row">
@@ -518,8 +545,8 @@ export default function App() {
                     <BookOpen size={20} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <div className="ndli-stat-number">{books.length}+ Holdings</div>
-                    <div className="ndli-stat-title">Verified Resources</div>
+                    <div className="ndli-stat-number">{books.length}+ {t?.library || 'Books'}</div>
+                    <div className="ndli-stat-title">{t?.stat1Label || 'Curated Books & Papers'}</div>
                   </div>
                 </div>
 
@@ -528,8 +555,8 @@ export default function App() {
                     <GraduationCap size={20} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <div className="ndli-stat-number">100% Free Open Access</div>
-                    <div className="ndli-stat-title">Democratized Learning</div>
+                    <div className="ndli-stat-number">{t?.stat2Num || '100% Free'}</div>
+                    <div className="ndli-stat-title">{t?.stat2Label || 'Open Access Forever'}</div>
                   </div>
                 </div>
 
@@ -538,8 +565,8 @@ export default function App() {
                     <Zap size={20} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <div className="ndli-stat-number">HTTP 206 Streaming</div>
-                    <div className="ndli-stat-title">Instant Zero-Delay Reader</div>
+                    <div className="ndli-stat-number">{t?.stat3Num || 'Instant'}</div>
+                    <div className="ndli-stat-title">{t?.stat3Label || 'Cloud PDF Streaming'}</div>
                   </div>
                 </div>
 
@@ -548,8 +575,8 @@ export default function App() {
                     <ShieldCheck size={20} />
                   </div>
                   <div style={{ textAlign: 'left' }}>
-                    <div className="ndli-stat-number">ISO 9001:2015</div>
-                    <div className="ndli-stat-title">Standard Quality Compliant</div>
+                    <div className="ndli-stat-number">Cloud Sync</div>
+                    <div className="ndli-stat-title">Google Drive Preserved</div>
                   </div>
                 </div>
               </div>
@@ -564,7 +591,7 @@ export default function App() {
                 ref={mobileSearchInputRef}
                 type="text"
                 className="search-input"
-                placeholder="Search books, authors..."
+                placeholder={t?.searchPlaceholder || "Search books, authors..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{ padding: '0.6rem 0.85rem 0.6rem 2.4rem', fontSize: '0.85rem' }}
@@ -577,34 +604,35 @@ export default function App() {
             categories={categories}
             selectedCategory={selectedCategory}
             onSelectCategory={(id) => setSelectedCategory(id)}
+            t={t}
           />
 
           {/* Catalog Section */}
           <div className="container" style={{ marginTop: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.85rem' }}>
               <div>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--color-ndli-navy)' }}>
+                <h2 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-main)' }}>
                   {searchQuery
                     ? `Search Results for "${searchQuery}"`
                     : selectedCategory
-                    ? categories.find((c) => c.id === selectedCategory)?.name || 'Domain Collection'
-                    : 'National Repository Holdings & Open Access Resources'}
+                    ? categories.find((c) => c.id === selectedCategory)?.name || 'Collection'
+                    : 'Browse the Collection'}
                 </h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>{books.length} publications indexed and available for immediate reading</span>
+                  <span>{books.length} publications available</span>
                   {isBackgroundSyncing && (
                     <span style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
                       fontSize: '0.72rem',
-                      color: 'var(--color-ndli-green)',
-                      background: 'rgba(13, 119, 81, 0.1)',
-                      border: '1px solid rgba(13, 119, 81, 0.25)',
+                      color: 'var(--color-accent)',
+                      background: 'var(--color-accent-soft)',
+                      border: '1px solid var(--border-accent)',
                       padding: '2px 8px',
                       borderRadius: 999
                     }}>
-                      <RefreshCw size={10} style={{ animation: 'spin 1.2s linear infinite' }} /> Syncing cloud archive...
+                      <RefreshCw size={10} style={{ animation: 'spin 1.2s linear infinite' }} /> Syncing...
                     </span>
                   )}
                 </p>
@@ -622,15 +650,15 @@ export default function App() {
                       gap: 6,
                       fontSize: '0.84rem',
                       padding: '0.5rem 1rem',
-                      background: 'var(--color-ndli-green)',
-                      boxShadow: '0 2px 6px rgba(13, 119, 81, 0.25)',
+                      background: 'var(--color-accent)',
+                      boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)',
                       border: 'none',
                       cursor: 'pointer',
                       fontWeight: 600,
                       borderRadius: '4px'
                     }}
                   >
-                    <Upload size={14} strokeWidth={2.5} /> + Upload Document / PDF
+                    <Upload size={14} strokeWidth={2.5} /> Upload PDF
                   </button>
                 )}
 
@@ -646,7 +674,7 @@ export default function App() {
                     fontSize: '0.82rem',
                     padding: '0.5rem 0.9rem',
                     borderColor: 'var(--border-color)',
-                    color: 'var(--color-ndli-navy)',
+                    color: 'var(--text-main)',
                     background: 'var(--card-bg)'
                   }}
                 >
@@ -792,68 +820,68 @@ export default function App() {
         </div>
       )}
 
-      {/* NDLI Standard 5-Column Institutional Footer */}
+      {/* Premium Footer */}
       <footer className="ndli-footer">
         <div className="container">
           <div className="ndli-footer-main">
-            {/* Column 1: About NDLI Repository */}
+            {/* Column 1: About */}
             <div className="ndli-footer-col">
-              <h5><Info size={16} color="#ff9933" /> About Repository</h5>
-              <p style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.6, marginBottom: '0.85rem' }}>
-                Sponsored and mentored in alignment with the National Mission on Education through ICT (NMEICT), Ministry of Education, Govt. of India. An integrated virtual repository democratizing access to quality learning resources across all disciplines.
+              <h5><Info size={16} color="#60a5fa" /> About</h5>
+              <p style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.7, marginBottom: '0.85rem' }}>
+                Sourav's Library is a modern digital repository providing free, open access to quality learning resources across all disciplines. Built with Spring Boot & React.
               </p>
               <div className="ndli-footer-cert-badge">
-                <ShieldCheck size={14} color="#6ee7b7" />
-                <span>ISO 9001:2015 Quality Certified</span>
+                <ShieldCheck size={14} color="#34d399" />
+                <span>Cloud Secured • Google Drive Sync</span>
               </div>
             </div>
 
-            {/* Column 2: Educational Domains */}
+            {/* Column 2: Browse */}
             <div className="ndli-footer-col">
-              <h5><GraduationCap size={16} color="#38bdf8" /> Domains</h5>
+              <h5><GraduationCap size={16} color="#60a5fa" /> Browse</h5>
               <ul className="ndli-footer-links">
                 <li><a href="#school" onClick={(e) => { e.preventDefault(); handleSelectDomain('School'); }}>School Education</a></li>
-                <li><a href="#higher" onClick={(e) => { e.preventDefault(); handleSelectDomain('Science'); }}>Higher Education</a></li>
-                <li><a href="#research" onClick={(e) => { e.preventDefault(); handleSelectDomain('Research'); }}>Research & Theses</a></li>
+                <li><a href="#higher" onClick={(e) => { e.preventDefault(); handleSelectDomain('Science'); }}>Science & Research</a></li>
+                <li><a href="#research" onClick={(e) => { e.preventDefault(); handleSelectDomain('Research'); }}>Research Papers</a></li>
                 <li><a href="#tech" onClick={(e) => { e.preventDefault(); handleSelectDomain('Computer'); }}>Engineering & Tech</a></li>
                 <li><a href="#career" onClick={(e) => { e.preventDefault(); handleSelectDomain('Career'); }}>Career Development</a></li>
               </ul>
             </div>
 
-            {/* Column 3: Repository Services */}
+            {/* Column 3: Features */}
             <div className="ndli-footer-col">
-              <h5><Layers size={16} color="#f59e0b" /> Digital Services</h5>
+              <h5><Layers size={16} color="#a78bfa" /> Features</h5>
               <ul className="ndli-footer-links">
-                <li><a href="#streaming" onClick={(e) => e.preventDefault()}>HTTP 206 Byte-Streaming</a></li>
-                <li><a href="#idr" onClick={(e) => e.preventDefault()}>Institutional Digital Repository</a></li>
+                <li><a href="#streaming" onClick={(e) => e.preventDefault()}>Instant PDF Streaming</a></li>
                 <li><a href="#cloud" onClick={(e) => e.preventDefault()}>Google Drive Cloud Sync</a></li>
-                <li><a href="#video" onClick={(e) => { e.preventDefault(); handleSelectSection('videos'); }}>NPTEL/Swayam Video Hub</a></li>
-                <li><a href="#ai" onClick={(e) => { e.preventDefault(); handleSelectSection('ai'); }}>NDLI AI Knowledge Tutor</a></li>
+                <li><a href="#video" onClick={(e) => { e.preventDefault(); handleSelectSection('videos'); }}>Video Lecture Hub</a></li>
+                <li><a href="#ai" onClick={(e) => { e.preventDefault(); handleSelectSection('ai'); }}>AI Study Assistant</a></li>
+                <li><a href="#idr" onClick={(e) => e.preventDefault()}>Digital Repository</a></li>
               </ul>
             </div>
 
-            {/* Column 4: Guidelines & Policy */}
+            {/* Column 4: Legal */}
             <div className="ndli-footer-col">
-              <h5><FileText size={16} color="#a7f3d0" /> Guidelines</h5>
+              <h5><FileText size={16} color="#34d399" /> Legal</h5>
               <ul className="ndli-footer-links">
-                <li><a href="#open-access" onClick={(e) => e.preventDefault()}>Open Access Policy</a></li>
-                <li><a href="#copyright" onClick={(e) => e.preventDefault()}>Copyright Guide for Libraries</a></li>
-                <li><a href="#terms" onClick={(e) => e.preventDefault()}>Terms & Conditions</a></li>
+                <li><a href="#terms" onClick={(e) => e.preventDefault()}>Terms of Service</a></li>
                 <li><a href="#privacy" onClick={(e) => e.preventDefault()}>Privacy Policy</a></li>
-                <li><a href="#accessibility" onClick={(e) => e.preventDefault()}>UX4G Accessibility Standard</a></li>
+                <li><a href="#open-access" onClick={(e) => e.preventDefault()}>Open Access Policy</a></li>
+                <li><a href="#copyright" onClick={(e) => e.preventDefault()}>Copyright</a></li>
+                <li><a href="#accessibility" onClick={(e) => e.preventDefault()}>Accessibility</a></li>
               </ul>
             </div>
 
-            {/* Column 5: Support & Connect */}
+            {/* Column 5: Connect */}
             <div className="ndli-footer-col">
-              <h5><Headphones size={16} color="#fb7185" /> Need Support</h5>
+              <h5><Headphones size={16} color="#fb7185" /> Connect</h5>
               <ul className="ndli-footer-links">
-                <li><a href="mailto:support@ndli-clone.org">Repository Helpdesk</a></li>
-                <li><a href="#faq" onClick={(e) => e.preventDefault()}>Learner FAQs & Guides</a></li>
-                <li><a href="#feedback" onClick={(e) => e.preventDefault()}>Feedback & Suggestions</a></li>
+                <li><a href="mailto:sourav09864@gmail.com">Email Support</a></li>
+                <li><a href="#faq" onClick={(e) => e.preventDefault()}>FAQs & Help</a></li>
+                <li><a href="#feedback" onClick={(e) => e.preventDefault()}>Feedback</a></li>
               </ul>
-              <div style={{ marginTop: '0.85rem', color: '#94a3b8', fontSize: '0.76rem' }}>
-                <strong style={{ color: '#cbd5e1' }}>System Engine:</strong> Oracle Database & Spring Boot 3
+              <div style={{ marginTop: '0.85rem', color: '#64748b', fontSize: '0.76rem' }}>
+                <strong style={{ color: '#94a3b8' }}>Powered by</strong> Spring Boot 3 & React 19
               </div>
             </div>
           </div>
@@ -862,15 +890,12 @@ export default function App() {
         <div className="ndli-footer-bottom">
           <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
-              <span>Site best viewed in 1280 x 720 pixels or higher resolution | JavaScript enabled</span>
-              <div style={{ marginTop: 3 }}>
-                © {new Date().getFullYear()} <strong>National Digital Library of India (NDLI) Style Portal</strong> • Developed by <strong>Sourav Mondal</strong>
-              </div>
+              © {new Date().getFullYear()} <strong>Sourav's Library</strong> — Built by <strong>Sourav Mondal</strong>
             </div>
             <div className="ndli-footer-bottom-links">
-              <span>Digital India Initiative</span>
+              <span>Open Source</span>
               <span>•</span>
-              <span>Open Educational Resources</span>
+              <span>Free Forever</span>
             </div>
           </div>
         </div>

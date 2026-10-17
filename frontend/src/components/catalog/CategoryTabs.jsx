@@ -1,7 +1,7 @@
 import React from 'react';
 import { Layers, BookOpen, GraduationCap, Microscope, Code, Landmark, Briefcase, FileText } from 'lucide-react';
 
-export default function CategoryTabs({ categories, selectedCategory, onSelectCategory }) {
+export default function CategoryTabs({ categories, selectedCategory, onSelectCategory, t }) {
   const getCategoryIcon = (name = '') => {
     const lower = name.toLowerCase();
     if (lower.includes('tech') || lower.includes('computer') || lower.includes('code')) return <Code size={13} style={{ marginRight: 5 }} />;
@@ -23,7 +23,7 @@ export default function CategoryTabs({ categories, selectedCategory, onSelectCat
           onClick={() => onSelectCategory(null)}
         >
           <Layers size={13} style={{ verticalAlign: 'middle', marginRight: 5 }} />
-          All Repository Holdings
+          {t?.allBooks || 'All Books'}
         </button>
 
         {categories.map((cat) => (
