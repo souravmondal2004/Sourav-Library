@@ -446,38 +446,76 @@ img {
   flex: 1;
   max-width: 380px;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  padding: 0.6rem 1rem 0.6rem 2.6rem;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-sm);
   font-size: 0.86rem;
   color: #ffffff;
   outline: none;
   transition: all 0.25s ease;
   font-family: inherit;
-  backdrop-filter: blur(4px);
+  /* Removed backdrop-filter: blur which caused the search icon blur */
 }
 
 .search-input::placeholder {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .search-input:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
   background: rgba(255, 255, 255, 0.12);
 }
 
 .search-icon {
   position: absolute;
-  left: 0.8rem;
+  left: 0.85rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #64748b;
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: none !important;
+  -webkit-filter: none !important;
+  transition: color 0.2s ease;
+}
+
+.search-bar-container:focus-within .search-icon,
+.search-input:focus ~ .search-icon {
+  color: #60a5fa !important;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  z-index: 10;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.search-clear-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* Mobile Search Bar (Standalone in Main Content) */
@@ -488,17 +526,29 @@ img {
 
 @media (max-width: 768px) {
   .mobile-search-bar {
-    display: block;
+    display: flex;
+    align-items: center;
   }
   .mobile-search-bar .search-input {
     background: var(--bg-surface);
     border: 1px solid var(--border-main);
     color: var(--text-main);
     border-radius: var(--radius-sm);
+    padding: 0.65rem 1rem 0.65rem 2.6rem;
   }
   .mobile-search-bar .search-input:focus {
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  .mobile-search-bar .search-icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 10;
+    filter: none !important;
   }
 }
 
@@ -829,6 +879,11 @@ img {
   gap: 0.85rem;
 }
 
+.ndli-stat-content {
+  text-align: left;
+  min-width: 0;
+}
+
 .ndli-stat-icon {
   width: 42px;
   height: 42px;
@@ -1108,28 +1163,41 @@ img {
   bottom: 0.75rem;
   right: 0.75rem;
   z-index: 5;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffff;
   color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: all 0.25s ease;
-  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.book-card-bookmark-btn:hover {
+  transform: scale(1.12);
+  background: #f8fafc;
+  color: #f59e0b;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+.book-card-bookmark-btn:hover svg {
+  color: #f59e0b;
 }
 
 .book-card-bookmark-btn.active {
   background: #f59e0b;
   color: #ffffff;
   border-color: #f59e0b;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
 }
 
-.book-card-bookmark-btn:hover {
-  transform: scale(1.1);
+.book-card-bookmark-btn.active:hover {
+  background: #d97706;
+  border-color: #d97706;
 }
 
 /* Card Body */
@@ -1194,14 +1262,15 @@ img {
 }
 
 /* ============================================================
-   PDF READER MODAL
+   PDF READER MODAL & HIGH-CONTRAST TOOLBAR CONTROLS
    ============================================================ */
 .reader-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
-  background: rgba(3, 7, 18, 0.92);
+  z-index: 10000;
+  background: rgba(3, 7, 18, 0.94);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1210,73 +1279,540 @@ img {
 
 .reader-modal-window {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1380px;
   height: 94vh;
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.25s ease;
   --reader-sb-thumb: #475569;
   --reader-sb-thumb-hover: #64748b;
   --reader-sb-track: rgba(0, 0, 0, 0.06);
 }
 
-.reader-theme-dark {
-  background: #030712;
-  color: #f1f5f9;
-  --reader-sb-thumb: #334155;
-  --reader-sb-thumb-hover: #64748b;
-  --reader-sb-track: #0a1628;
-}
-.reader-theme-dark .reader-toolbar {
-  background: #0a1628;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-
-.reader-theme-light {
-  background: #f8fafc;
-  color: #0f172a;
-  --reader-sb-thumb: #94a3b8;
-  --reader-sb-thumb-hover: #0a1628;
-  --reader-sb-track: #e2e8f0;
-}
-.reader-theme-light .reader-toolbar {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  color: #0f172a;
-}
-
-.reader-theme-sepia {
-  background: #faf5e4;
-  color: #44403c;
-  --reader-sb-thumb: #c4ab8c;
-  --reader-sb-thumb-hover: #8c7355;
-  --reader-sb-track: #edd7ba;
-}
-.reader-theme-sepia .reader-toolbar {
-  background: #f5edd6;
-  border-bottom: 1px solid #e5d5b5;
-  color: #44403c;
-}
-
+/* Reader Toolbar Header */
 .reader-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.25rem;
-  gap: 1rem;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  z-index: 20;
+  position: relative;
+}
+
+.reader-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.reader-close-btn {
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.reader-book-meta-box {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .reader-toolbar-center {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
+.reader-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.reader-desktop-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Book Title and Meta in Reader Header */
+.reader-book-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.reader-book-meta {
+  font-size: 0.75rem;
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Reader Tool Buttons (ZoomIn, ZoomOut, Close, Rotate, Bookmark, Fullscreen) */
+.reader-tool-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.65rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  text-decoration: none !important;
+  user-select: none !important;
+}
+
+.reader-tool-btn:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Zoom Reset Indicator (% label) */
+.reader-zoom-indicator {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.42rem 0.75rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  min-width: 58px !important;
+  text-align: center !important;
+  transition: all 0.15s ease !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  user-select: none !important;
+}
+
+/* Download & Highlighted Action Buttons */
+.reader-highlight-btn {
+  font-weight: 700 !important;
+  padding: 0.45rem 0.95rem !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  letter-spacing: 0.01em !important;
+}
+
+.reader-btn-label {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+/* Page Indicator & Number Input */
+.reader-page-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.reader-page-input {
+  width: 46px;
+  padding: 4px 6px;
+  text-align: center;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+/* Theme Switcher Pills */
+.reader-theme-switcher {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.reader-theme-btn {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  background: transparent;
+}
+
+/* Quick 1-Tap Mobile & Desktop Theme Toggle */
+.reader-mode-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  user-select: none !important;
+}
+
+.reader-mode-toggle-label {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.mobile-reader-only {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------
+   THEME 1: DARK MODE (High-Contrast Slate Navy)
+   Fixes invisible buttons (+, -, 100%, Download) in Dark Mode
+   ------------------------------------------------------------ */
+.reader-theme-dark {
+  background: #060e1a !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  --reader-sb-thumb: #334155;
+  --reader-sb-thumb-hover: #64748b;
+  --reader-sb-track: #0a1628;
+}
+
+.reader-theme-dark .reader-toolbar {
+  background: #0a1628 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.reader-theme-dark .reader-book-title {
+  color: #ffffff !important;
+}
+
+.reader-theme-dark .reader-book-meta {
+  color: #94a3b8 !important;
+}
+
+/* Dark Mode Tool Buttons (ZoomIn, ZoomOut, Rotate, Close, Fullscreen, Bookmark) */
+.reader-theme-dark .reader-tool-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+
+.reader-theme-dark .reader-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* Dark Mode 100% Zoom Reset Button */
+.reader-theme-dark .reader-zoom-indicator {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+}
+
+.reader-theme-dark .reader-zoom-indicator:hover {
+  background: rgba(59, 130, 246, 0.3) !important;
+  border-color: #3b82f6 !important;
+  color: #60a5fa !important;
+}
+
+/* Dark Mode Download Button — Bright, Eye-Catching, High-Contrast Blue */
+.reader-theme-dark .reader-highlight-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45) !important;
+}
+
+.reader-theme-dark .reader-highlight-btn:hover {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+/* Dark Mode Page Controls */
+.reader-theme-dark .reader-page-indicator {
+  color: #e2e8f0 !important;
+}
+
+.reader-theme-dark .reader-page-input {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.reader-theme-dark .reader-theme-switcher {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.reader-theme-dark .reader-theme-btn {
+  color: #94a3b8 !important;
+}
+
+.reader-theme-dark .reader-theme-btn.active {
+  background: #1e293b !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
+.reader-theme-dark .reader-mode-toggle-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.reader-theme-dark .reader-mode-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: #fbbf24 !important;
+}
+
+/* Dark Mode Document Page Filter: High-Contrast, Crisp Vector Text */
+.reader-theme-dark .pdf-page-canvas {
+  filter: invert(1) hue-rotate(180deg) contrast(1.3) brightness(1.05) !important;
+  background-color: #0b0f19 !important;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transition: filter 0.2s ease;
+}
+
+/* ------------------------------------------------------------
+   THEME 2: LIGHT MODE (Crisp White & Slate)
+   Fixes washed-out / white-on-white buttons & titles
+   ------------------------------------------------------------ */
+.reader-theme-light {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  --reader-sb-thumb: #94a3b8;
+  --reader-sb-thumb-hover: #0a1628;
+  --reader-sb-track: #e2e8f0;
+}
+
+.reader-theme-light .reader-toolbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+.reader-theme-light .reader-book-title {
+  color: #0f172a !important;
+}
+
+.reader-theme-light .reader-book-meta {
+  color: #64748b !important;
+}
+
+/* Light Mode Tool Buttons */
+.reader-theme-light .reader-tool-btn {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.reader-theme-light .reader-tool-btn:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
+/* Light Mode 100% Zoom Reset Button */
+.reader-theme-light .reader-zoom-indicator {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.reader-theme-light .reader-zoom-indicator:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Light Mode Download Button */
+.reader-theme-light .reader-highlight-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(37, 99, 235, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+.reader-theme-light .reader-highlight-btn:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+/* Light Mode Page Controls */
+.reader-theme-light .reader-page-indicator {
+  color: #1e293b !important;
+}
+
+.reader-theme-light .reader-page-input {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.reader-theme-light .reader-theme-switcher {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.reader-theme-light .reader-theme-btn {
+  color: #64748b !important;
+}
+
+.reader-theme-light .reader-theme-btn.active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.reader-theme-light .reader-mode-toggle-btn {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.reader-theme-light .reader-mode-toggle-btn:hover {
+  background: #e2e8f0 !important;
+  border-color: #6366f1 !important;
+}
+
+/* Light / White Mode Document Page Filter */
+.reader-theme-light .pdf-page-canvas {
+  filter: none !important;
+  background-color: #ffffff !important;
+  transition: filter 0.25s ease;
+}
+
+/* ------------------------------------------------------------
+   THEME 3: WARM SEPIA MODE
+   ------------------------------------------------------------ */
+.reader-theme-sepia {
+  background: #f4ecd8 !important;
+  color: #3f2e1a !important;
+  border-color: #e2d7be !important;
+  --reader-sb-thumb: #c4ab8c;
+  --reader-sb-thumb-hover: #8c7355;
+  --reader-sb-track: #edd7ba;
+}
+
+.reader-theme-sepia .reader-toolbar {
+  background: #fcf6e8 !important;
+  border-bottom: 1px solid #e2d7be !important;
+  color: #3f2e1a !important;
+}
+
+.reader-theme-sepia .reader-book-title {
+  color: #3f2e1a !important;
+}
+
+.reader-theme-sepia .reader-book-meta {
+  color: #785a3c !important;
+}
+
+.reader-theme-sepia .reader-tool-btn,
+.reader-theme-sepia .reader-zoom-indicator {
+  background: #efe3cc !important;
+  color: #3f2e1a !important;
+  border: 1px solid #dacab0 !important;
+}
+
+.reader-theme-sepia .reader-tool-btn:hover,
+.reader-theme-sepia .reader-zoom-indicator:hover {
+  background: #e2d3b8 !important;
+  border-color: #c4ab8c !important;
+}
+
+.reader-theme-sepia .reader-highlight-btn {
+  background: linear-gradient(135deg, #92400e 0%, #78350f 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(146, 64, 14, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(146, 64, 14, 0.3) !important;
+}
+
+.reader-theme-sepia .reader-page-indicator {
+  color: #3f2e1a !important;
+}
+
+.reader-theme-sepia .reader-page-input {
+  background: #fcf6e8 !important;
+  color: #3f2e1a !important;
+  border: 1px solid #dacab0 !important;
+}
+
+.reader-theme-sepia .reader-theme-switcher {
+  background: #efe3cc !important;
+  border: 1px solid #dacab0 !important;
+}
+
+.reader-theme-sepia .reader-theme-btn {
+  color: #785a3c !important;
+}
+
+.reader-theme-sepia .reader-theme-btn.active {
+  background: #fcf6e8 !important;
+  color: #3f2e1a !important;
+  box-shadow: 0 1px 4px rgba(63, 46, 26, 0.15) !important;
+}
+
+.reader-theme-sepia .reader-mode-toggle-btn {
+  background: #efe3cc !important;
+  color: #3f2e1a !important;
+  border: 1px solid #dacab0 !important;
+}
+
+.reader-theme-sepia .reader-mode-toggle-btn:hover {
+  background: #e2d3b8 !important;
+  border-color: #c4ab8c !important;
+}
+
+/* Sepia Mode Document Page Filter */
+.reader-theme-sepia .pdf-page-canvas {
+  filter: sepia(0.36) contrast(0.95) brightness(0.96) !important;
+  background-color: #f7eed7 !important;
+  transition: filter 0.25s ease;
+}
+
+/* Reader Content Body Container */
 .reader-content-body {
   flex: 1 1 0%;
   min-height: 0;
@@ -1322,9 +1858,30 @@ img {
 
 .pdf-page-canvas {
   display: block;
-  max-width: none;
+  max-width: 100%;
   height: auto;
   background-color: #ffffff;
+  transition: filter 0.25s ease;
+}
+
+/* Reader Bottom Controls */
+.reader-bottom-nav-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 680px;
+  margin: 2rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(128, 128, 128, 0.2);
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.reader-bottom-nav-controls .btn {
+  min-height: 36px;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.85rem;
 }
 
 /* ============================================================
@@ -1854,32 +2411,78 @@ button, a, input, select {
     border-radius: 9999px;
   }
 
-  /* Stats Bar on Mobile */
-  .ndli-stats-bar {
-    padding: 1.25rem 0;
-    margin-bottom: 1.5rem;
+  /* Stats Bar on Mobile — Balanced, Space-Saving 2x2 Native Grid */
+  .ndli-stats-strip {
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-main);
   }
 
   .ndli-stats-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.45rem !important;
+    padding: 0 0.5rem;
   }
 
   .ndli-stat-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 0.45rem 0.6rem !important;
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid var(--border-main) !important;
+    border-radius: 10px !important;
+    min-width: 0 !important;
+    text-align: left !important;
+  }
+
+  [data-theme="light"] .ndli-stat-item {
+    background: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  [data-theme="dark"] .ndli-stat-item {
+    background: rgba(15, 29, 50, 0.5) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .ndli-stat-icon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .ndli-stat-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .ndli-stat-content {
     min-width: 0;
-    text-align: center;
-    padding: 0.25rem;
+    overflow: hidden;
   }
 
-  .ndli-stat-num {
-    font-size: 1.25rem;
-    line-height: 1.2;
+  .ndli-stat-number {
+    font-size: 0.85rem !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
-  .ndli-stat-label {
-    font-size: 0.68rem;
-    line-height: 1.2;
+  .ndli-stat-title {
+    font-size: 0.6rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    line-height: 1.15 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: var(--text-muted) !important;
   }
 
   /* Category Chips Bar: Smooth Mobile Horizontal Carousel */
@@ -2025,35 +2628,131 @@ button, a, input, select {
     position: fixed !important;
     inset: 0 !important;
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100dvh !important;
     max-width: 100vw !important;
-    max-height: 100vh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
     margin: 0 !important;
     display: flex;
     flex-direction: column;
+    overflow: hidden !important;
   }
 
   .reader-toolbar {
-    padding: 0.6rem 0.75rem;
-    gap: 0.5rem;
+    padding: 0.5rem 0.65rem !important;
+    gap: 0.35rem !important;
     flex-shrink: 0;
+    justify-content: space-between !important;
+  }
+
+  .reader-toolbar-left {
+    flex-shrink: 1 !important;
+    max-width: 30% !important;
+    overflow: hidden !important;
+    gap: 0.4rem !important;
+  }
+
+  .reader-close-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+
+  .reader-book-title {
+    max-width: 85px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .reader-book-meta {
+    display: none !important;
   }
 
   .reader-toolbar-center {
-    gap: 4px;
+    gap: 2px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .reader-toolbar-right {
+    gap: 3px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .reader-page-indicator {
+    font-size: 0.75rem !important;
+    gap: 2px !important;
+  }
+
+  .reader-page-word {
+    display: none !important;
+  }
+
+  .reader-page-input {
+    width: 32px !important;
+    padding: 2px 2px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .reader-tool-btn {
+    padding: 0.35rem 0.45rem !important;
+    min-height: 32px !important;
+    font-size: 0.78rem !important;
+  }
+
+  .reader-mode-toggle-btn {
+    padding: 0.35rem 0.45rem !important;
+    min-height: 32px !important;
+  }
+
+  .reader-mode-toggle-label {
+    display: none !important;
+  }
+
+  .reader-btn-label {
+    display: none !important;
+  }
+
+  .desktop-reader-only {
+    display: none !important;
   }
 
   .reader-desktop-tools {
-    display: none !important; /* Hide secondary desktop zoom widgets on phone */
+    display: none !important;
   }
 
   .rotate-btn-text {
     display: none;
   }
 
-  .reader-canvas-container {
-    padding: 0.5rem 0.25rem !important;
+  .pdf-canvas-container {
+    padding: 0.5rem 0.25rem 4rem !important;
+    overflow-x: auto !important;
+    align-items: center !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pdf-page-wrapper {
+    width: fit-content !important;
+    max-width: none !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: transparent !important;
+  }
+
+  .pdf-page-canvas {
+    height: auto !important;
+    display: block !important;
+    image-rendering: -webkit-optimize-contrast;
+  }
+
+  .reader-bottom-nav-controls {
+    margin-top: 1.25rem !important;
+    padding: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
   }
 
   /* Video Hub on Mobile */

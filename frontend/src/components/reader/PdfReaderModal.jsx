@@ -8,7 +8,6 @@ import {
   Maximize,
   Sun,
   Moon,
-  Coffee,
   Bookmark,
   Download,
   ExternalLink,
@@ -74,6 +73,23 @@ export default function PdfReaderModal({
   const [theme, setTheme] = useState('light'); // 'light', 'sepia', 'dark'
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rotation, setRotation] = useState(0); // 0, 90, 180, 270 degrees
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 800);
+
+  const toggleDarkWhiteMode = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
 
   // PDF.js Canvas Rendering States
   const [pdfDoc, setPdfDoc] = useState(null);
@@ -267,19 +283,57 @@ export default function PdfReaderModal({
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
 
-        // Responsive base scale (1.2 default, scaled with zoomLevel)
-        const baseScale = 1.25 * (zoomLevel / 100);
         const effectiveRotation = ((page.rotate || 0) + rotation) % 360;
-        const viewport = page.getViewport({ scale: baseScale, rotation: effectiveRotation });
 
-        // High DPI sharpness support for Retina and mobile displays
-        const dpr = window.devicePixelRatio || 1;
+        // 1. Get native unscaled dimensions of the PDF page at scale 1.0
+        const unscaledViewport = page.getViewport({ scale: 1.0, rotation: effectiveRotation });
+
+        // 2. Measure available container width for fit-to-width
+        let containerWidth = 800;
+        if (containerRef.current && containerRef.current.clientWidth > 0) {
+          containerWidth = containerRef.current.clientWidth;
+        } else if (typeof window !== 'undefined') {
+          containerWidth = window.innerWidth;
+        }
+
+        const isMobileScreen = typeof window !== 'undefined' && window.innerWidth < 768;
+        // On mobile, keep minimal padding (10px total) so 100% of the PDF page is visible without horizontal scrolling
+        const horizontalPadding = isMobileScreen ? 12 : 36;
+        const usableWidth = Math.max(260, containerWidth - horizontalPadding);
+
+        // 3. Compute fit-to-width scale
+        let fitScale = usableWidth / unscaledViewport.width;
+        if (!isMobileScreen) {
+          // On desktop, cap default scale between 0.85 and 1.35
+          fitScale = Math.min(1.35, Math.max(0.85, fitScale));
+        }
+
+        const finalScale = fitScale * (zoomLevel / 100);
+        const viewport = page.getViewport({ scale: finalScale, rotation: effectiveRotation });
+
+        // High DPI sharpness: guarantee minimum 2.0 DPR so text is crystal clear at all zoom levels
+        const dpr = Math.max(window.devicePixelRatio || 1, 2.0);
         canvas.width = Math.floor(viewport.width * dpr);
         canvas.height = Math.floor(viewport.height * dpr);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+        const displayWidth = Math.floor(viewport.width);
+        const displayHeight = Math.floor(viewport.height);
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+
+        // At 100% zoom, fit width so the whole page is visible.
+        // When user zooms in (> 100%), allow canvas to grow so they see large, clear magnified text!
+        if (zoomLevel <= 100) {
+          canvas.style.maxWidth = '100%';
+        } else {
+          canvas.style.maxWidth = 'none';
+        }
 
         const transform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
+
+        // Enhance 2D context text sharpness and anti-aliasing
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         const renderContext = {
           canvasContext: ctx,
@@ -325,7 +379,7 @@ export default function PdfReaderModal({
         }
       }
     };
-  }, [pdfDoc, currentPage, zoomLevel, rotation, isTextMode]);
+  }, [pdfDoc, currentPage, zoomLevel, rotation, isTextMode, windowWidth]);
 
   // Save reading progress periodically
   useEffect(() => {
@@ -372,20 +426,19 @@ export default function PdfReaderModal({
         {/* Reader Toolbar */}
         <div className="reader-toolbar">
           {/* Left: Book Meta & Close */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className="reader-toolbar-left">
             <button
               onClick={onClose}
-              className="btn btn-outline"
-              style={{ padding: '0.45rem', borderRadius: '50%' }}
+              className="btn reader-tool-btn reader-close-btn"
               title="Close Reader (Esc)"
             >
-              <X size={18} />
+              <X size={18} strokeWidth={2.4} />
             </button>
-            <div>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div className="reader-book-meta-box">
+              <h3 className="reader-book-title">
                 {book.title}
               </h3>
-              <p style={{ fontSize: '0.75rem', opacity: 0.75, margin: 0 }}>
+              <p className="reader-book-meta">
                 {book.author} • {book.categoryName}
               </p>
             </div>
@@ -394,17 +447,16 @@ export default function PdfReaderModal({
           {/* Center: Page Controls */}
           <div className="reader-toolbar-center">
             <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
+              className="btn reader-tool-btn"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               title="Previous Page"
             >
-              <ChevronLeft size={18} />
+              <ChevronLeft size={18} strokeWidth={2.4} />
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.85rem', fontWeight: 600 }}>
-              <span>Page</span>
+            <div className="reader-page-indicator">
+              <span className="reader-page-word">Page</span>
               <input
                 type="number"
                 min={1}
@@ -416,89 +468,38 @@ export default function PdfReaderModal({
                     setCurrentPage(val);
                   }
                 }}
-                style={{
-                  width: 44,
-                  padding: '2px 4px',
-                  textAlign: 'center',
-                  borderRadius: 4,
-                  border: '1px solid var(--border-color)',
-                  background: 'inherit',
-                  color: 'inherit',
-                  fontWeight: 700
-                }}
+                className="reader-page-input"
               />
-              <span>of {totalPages}</span>
+              <span>/ {totalPages}</span>
             </div>
 
             <button
-              className="btn btn-outline"
-              style={{ padding: '0.4rem' }}
+              className="btn reader-tool-btn"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               title="Next Page"
             >
-              <ChevronRight size={18} />
+              <ChevronRight size={18} strokeWidth={2.4} />
             </button>
           </div>
 
-          {/* Right: Theme, Zoom, Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            {/* Theme switcher */}
-            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.06)', borderRadius: 6, padding: 2 }}>
-              <button
-                style={{
-                  padding: '4px 6px',
-                  borderRadius: 4,
-                  background: theme === 'light' ? '#fff' : 'transparent',
-                  color: theme === 'light' ? '#002e3b' : 'inherit',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setTheme('light')}
-                title="Light Mode"
-              >
-                <Sun size={15} />
-              </button>
-              <button
-                style={{
-                  padding: '4px 6px',
-                  borderRadius: 4,
-                  background: theme === 'sepia' ? '#fbf0d9' : 'transparent',
-                  color: theme === 'sepia' ? '#5f4b32' : 'inherit',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setTheme('sepia')}
-                title="Warm Sepia Mode"
-              >
-                <Coffee size={15} />
-              </button>
-              <button
-                style={{
-                  padding: '4px 6px',
-                  borderRadius: 4,
-                  background: theme === 'dark' ? '#0f172a' : 'transparent',
-                  color: theme === 'dark' ? '#fff' : 'inherit',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setTheme('dark')}
-                title="Night Mode"
-              >
-                <Moon size={15} />
-              </button>
-            </div>
-
-            {/* Rotate Document button */}
+          {/* Right: Theme, Single Download, Bookmark & Desktop Tools */}
+          <div className="reader-toolbar-right">
+            {/* Single Clean Dark / Light Mode Toggle */}
             <button
               type="button"
-              className="btn reader-tool-btn"
-              onClick={() => setRotation((r) => (r + 90) % 360)}
-              title={`Rotate 90° Clockwise (Current: ${rotation}°)`}
+              className="btn reader-tool-btn reader-mode-toggle-btn"
+              onClick={toggleDarkWhiteMode}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle dark and light mode"
             >
-              <RotateCw size={16} strokeWidth={2.2} />
-              <span className="rotate-btn-text" style={{ fontSize: '0.75rem' }}>
-                {rotation > 0 ? `${rotation}°` : 'Rotate'}
+              {theme === 'dark' ? (
+                <Sun size={16} strokeWidth={2.4} color="#fbbf24" />
+              ) : (
+                <Moon size={16} strokeWidth={2.4} color="#6366f1" />
+              )}
+              <span className="reader-mode-toggle-label">
+                {theme === 'dark' ? 'Light' : 'Dark'}
               </span>
             </button>
 
@@ -511,21 +512,45 @@ export default function PdfReaderModal({
             >
               <Bookmark
                 size={16}
-                strokeWidth={2.2}
+                strokeWidth={2.4}
                 fill={isBookmarked ? '#f59e0b' : 'transparent'}
                 color={isBookmarked ? '#f59e0b' : 'currentColor'}
               />
             </button>
 
-            {/* Desktop Tools (Zoom, Download, Open Tab, Fullscreen) */}
-            <div className="reader-desktop-tools" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+            {/* Single Unified Download Document Button */}
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="btn reader-tool-btn reader-highlight-btn"
+              title="Download PDF to your device"
+            >
+              <Download size={16} strokeWidth={2.4} />
+              <span className="reader-btn-label">Download</span>
+            </button>
+
+            {/* Rotate Document button (Desktop only) */}
+            <button
+              type="button"
+              className="btn reader-tool-btn desktop-reader-only"
+              onClick={() => setRotation((r) => (r + 90) % 360)}
+              title={`Rotate 90° Clockwise (Current: ${rotation}°)`}
+            >
+              <RotateCw size={16} strokeWidth={2.4} />
+              <span className="rotate-btn-text" style={{ fontSize: '0.75rem' }}>
+                {rotation > 0 ? `${rotation}°` : 'Rotate'}
+              </span>
+            </button>
+
+            {/* Desktop-Only Tools (Zoom In/Out, 100%, Open Tab, Fullscreen) */}
+            <div className="reader-desktop-tools">
               <button
                 type="button"
                 className="btn reader-tool-btn"
                 onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
-                title="Zoom Out"
+                title="Zoom Out (-)"
               >
-                <ZoomOut size={16} strokeWidth={2.2} />
+                <ZoomOut size={16} strokeWidth={2.4} />
               </button>
               <button
                 type="button"
@@ -539,20 +564,9 @@ export default function PdfReaderModal({
                 type="button"
                 className="btn reader-tool-btn"
                 onClick={() => setZoomLevel((z) => Math.min(220, z + 15))}
-                title="Zoom In"
+                title="Zoom In (+)"
               >
-                <ZoomIn size={16} strokeWidth={2.2} />
-              </button>
-
-              {/* Download Document Button */}
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="btn reader-tool-btn reader-highlight-btn"
-                title="Download PDF to your device"
-              >
-                <Download size={16} strokeWidth={2.4} />
-                <span className="reader-btn-label">Download</span>
+                <ZoomIn size={16} strokeWidth={2.4} />
               </button>
 
               {/* Open in New Tab Button */}
@@ -560,7 +574,7 @@ export default function PdfReaderModal({
                 href={streamUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn reader-tool-btn reader-highlight-btn"
+                className="btn reader-tool-btn"
                 title="Open PDF directly in a new browser tab"
               >
                 <ExternalLink size={16} strokeWidth={2.4} />
@@ -574,7 +588,7 @@ export default function PdfReaderModal({
                 onClick={toggleFullscreen}
                 title="Toggle Fullscreen"
               >
-                <Maximize size={16} strokeWidth={2.2} />
+                <Maximize size={16} strokeWidth={2.4} />
               </button>
             </div>
           </div>

@@ -544,7 +544,7 @@ export default function App() {
                   <div className="ndli-stat-icon">
                     <BookOpen size={20} />
                   </div>
-                  <div style={{ textAlign: 'left' }}>
+                  <div className="ndli-stat-content">
                     <div className="ndli-stat-number">{books.length}+ {t?.library || 'Books'}</div>
                     <div className="ndli-stat-title">{t?.stat1Label || 'Curated Books & Papers'}</div>
                   </div>
@@ -554,7 +554,7 @@ export default function App() {
                   <div className="ndli-stat-icon">
                     <GraduationCap size={20} />
                   </div>
-                  <div style={{ textAlign: 'left' }}>
+                  <div className="ndli-stat-content">
                     <div className="ndli-stat-number">{t?.stat2Num || '100% Free'}</div>
                     <div className="ndli-stat-title">{t?.stat2Label || 'Open Access Forever'}</div>
                   </div>
@@ -564,7 +564,7 @@ export default function App() {
                   <div className="ndli-stat-icon">
                     <Zap size={20} />
                   </div>
-                  <div style={{ textAlign: 'left' }}>
+                  <div className="ndli-stat-content">
                     <div className="ndli-stat-number">{t?.stat3Num || 'Instant'}</div>
                     <div className="ndli-stat-title">{t?.stat3Label || 'Cloud PDF Streaming'}</div>
                   </div>
@@ -574,7 +574,7 @@ export default function App() {
                   <div className="ndli-stat-icon">
                     <ShieldCheck size={20} />
                   </div>
-                  <div style={{ textAlign: 'left' }}>
+                  <div className="ndli-stat-content">
                     <div className="ndli-stat-number">Cloud Sync</div>
                     <div className="ndli-stat-title">Google Drive Preserved</div>
                   </div>
@@ -586,7 +586,6 @@ export default function App() {
           {/* Mobile Search Bar */}
           <div className="container" style={{ marginTop: '0.75rem', marginBottom: '0.25rem' }}>
             <div className="mobile-search-bar">
-              <Search size={16} className="search-icon" style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 ref={mobileSearchInputRef}
                 type="text"
@@ -594,8 +593,9 @@ export default function App() {
                 placeholder={t?.searchPlaceholder || "Search books, authors..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ padding: '0.6rem 0.85rem 0.6rem 2.4rem', fontSize: '0.85rem' }}
+                style={{ padding: '0.6rem 0.85rem 0.6rem 2.6rem', fontSize: '0.85rem' }}
               />
+              <Search size={16} strokeWidth={2.4} className="search-icon" />
             </div>
           </div>
 

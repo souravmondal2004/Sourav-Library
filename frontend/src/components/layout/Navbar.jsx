@@ -210,7 +210,6 @@ export default function Navbar({
 
           {/* Crisp, Sharp Desktop Search Bar (Fixed blur & sizing) */}
           <div className="search-bar-container desktop-nav-only">
-            <Search size={16} className="search-icon" />
             <input
               type="text"
               className="search-input"
@@ -219,6 +218,7 @@ export default function Navbar({
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search repository"
             />
+            <Search size={16} strokeWidth={2.4} className="search-icon" />
             {searchQuery && (
               <button
                 type="button"
@@ -226,7 +226,7 @@ export default function Navbar({
                 onClick={() => setSearchQuery('')}
                 title="Clear search"
               >
-                <X size={14} />
+                <X size={14} strokeWidth={2.4} />
               </button>
             )}
           </div>

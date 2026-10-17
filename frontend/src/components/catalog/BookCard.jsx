@@ -133,7 +133,12 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
           title={isBookmarked ? (t?.removeFromBookshelf || 'Remove Bookmark') : (t?.saveToBookshelf || 'Save to Bookshelf')}
           aria-label={isBookmarked ? 'Remove bookmark' : 'Bookmark this book'}
         >
-          <Bookmark size={15} fill={isBookmarked ? '#ffffff' : 'none'} color={isBookmarked ? '#ffffff' : '#ffffff'} />
+          <Bookmark
+            size={16}
+            strokeWidth={2.4}
+            fill={isBookmarked ? '#ffffff' : 'transparent'}
+            color={isBookmarked ? '#ffffff' : '#0f172a'}
+          />
         </button>
       </div>
 
