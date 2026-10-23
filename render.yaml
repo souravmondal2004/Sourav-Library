@@ -16,7 +16,7 @@ services:
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: JAVA_TOOL_OPTIONS
-        value: "-XX:+UseSerialGC -Xms48m -Xmx140m -XX:MaxMetaspaceSize=85m -XX:ReservedCodeCacheSize=28m -XX:MaxDirectMemorySize=16m -XX:CompressedClassSpaceSize=18m -Xss256k -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
+        value: "-XX:+UseSerialGC -Xms48m -Xmx180m -XX:MaxMetaspaceSize=112m -XX:ReservedCodeCacheSize=32m -XX:MaxDirectMemorySize=24m -XX:CompressedClassSpaceSize=20m -Xss384k -Dfile.encoding=UTF-8 -XX:+ExitOnOutOfMemoryError"
       - key: MALLOC_ARENA_MAX
         value: "2"
       - key: RENDER_EXTERNAL_URL

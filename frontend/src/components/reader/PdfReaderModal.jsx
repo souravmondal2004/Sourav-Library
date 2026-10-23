@@ -183,7 +183,7 @@ export default function PdfReaderModal({
         const directCloudUrl = `https://sourav-library.onrender.com/api/documents/${book.id}/stream`;
         // Bypass Vercel 4.5MB proxy limit by connecting directly to Render cloud when hosted on Vercel
         const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app');
-        const activeStreamUrl = (retryCount > 0 || isVercelHost) ? directCloudUrl : streamUrl;
+        const activeStreamUrl = isVercelHost ? directCloudUrl : streamUrl;
 
         let doc = null;
         try {
@@ -207,8 +207,8 @@ export default function PdfReaderModal({
           doc = await loadingTask.promise;
         } catch (streamingErr) {
           console.warn('Progressive streaming fallback to direct fetch:', streamingErr);
-          // Resilient Fallback: Stream directly via fetch from direct cloud URL
-          const response = await fetch(directCloudUrl);
+          // Resilient Fallback: Stream directly via fetch from active stream URL
+          const response = await fetch(activeStreamUrl);
           if (!response.ok) {
             throw new Error(`Cloud server returned HTTP ${response.status}. Please wait a few seconds and click Retry.`);
           }
