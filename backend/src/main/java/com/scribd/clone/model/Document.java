@@ -60,6 +60,9 @@ public class Document {
     @Column(name = "download_count", nullable = false)
     private Long downloadCount = 0L;
 
+    @Column(name = "google_drive_url", length = 1000)
+    private String googleDriveUrl;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "uploaded_by", nullable = false)
     private User uploadedBy;
@@ -134,6 +137,9 @@ public class Document {
 
     public Long getDownloadCount() { return downloadCount; }
     public void setDownloadCount(Long downloadCount) { this.downloadCount = downloadCount; }
+
+    public String getGoogleDriveUrl() { return googleDriveUrl; }
+    public void setGoogleDriveUrl(String googleDriveUrl) { this.googleDriveUrl = googleDriveUrl; }
 
     public User getUploadedBy() { return uploadedBy; }
     public void setUploadedBy(User uploadedBy) { this.uploadedBy = uploadedBy; }

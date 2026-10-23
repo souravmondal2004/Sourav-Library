@@ -20,6 +20,7 @@ export default function PdfUploadModal({
   const [pageCount, setPageCount] = useState('');
   const [publishedYear, setPublishedYear] = useState(new Date().getFullYear());
   const [isFeatured, setIsFeatured] = useState(false);
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
 
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,8 +105,8 @@ export default function PdfUploadModal({
       setErrorMsg('Admin authorization required: Only Admin (Sourav) can upload books to Sourav\'s Library. Please sign in as Admin.');
       return;
     }
-    if (!pdfFile) {
-      setErrorMsg('Please select a PDF document file to upload.');
+    if (!pdfFile && !googleDriveUrl.trim()) {
+      setErrorMsg('Please select a PDF file or enter a Google Drive link.');
       return;
     }
     if (!title.trim()) {
@@ -136,11 +137,16 @@ export default function PdfUploadModal({
       // ignore and proceed
     }
 
-    setUploadStatus(`Uploading ${pdfFile.name} (${formatFileSize(pdfFile.size)}) directly to Google Drive (5TB)...`);
+    setUploadStatus(pdfFile ? `Uploading ${pdfFile.name} (${formatFileSize(pdfFile.size)}) to library...` : 'Registering Google Drive PDF publication...');
 
     const activeCatId = categoryId || (categories.length > 0 ? categories[0].id : 1);
     const formData = new FormData();
-    formData.append('file', pdfFile);
+    if (pdfFile) {
+      formData.append('file', pdfFile);
+    }
+    if (googleDriveUrl.trim()) {
+      formData.append('googleDriveUrl', googleDriveUrl.trim());
+    }
     if (coverFile) {
       formData.append('cover', coverFile);
     }
@@ -325,6 +331,30 @@ export default function PdfUploadModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Direct Google Drive Link Input */}
+          <div style={{
+            marginBottom: '1.25rem',
+            padding: '0.85rem 1rem',
+            background: 'rgba(56, 189, 248, 0.05)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: 10
+          }}>
+            <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: 700, color: '#38bdf8', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Cloud size={15} /> Google Drive Direct Link / File ID (Optional - Recommended)
+            </label>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="e.g. https://drive.google.com/file/d/1ZwKXAE2dM.../view"
+              value={googleDriveUrl}
+              onChange={(e) => setGoogleDriveUrl(e.target.value)}
+              style={{ width: '100%', padding: '0.65rem 0.85rem', fontSize: '0.88rem' }}
+            />
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: 4 }}>
+              When provided, users tap the PDF to open it directly in Google Drive with instant loading and 0% server RAM usage.
+            </div>
           </div>
 
           {/* Form Fields Grid */}

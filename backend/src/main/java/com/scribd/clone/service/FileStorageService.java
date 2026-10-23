@@ -471,6 +471,37 @@ public class FileStorageService {
 
 
 
+        // 2. Bundled classpath resource lookup (embedded inside the Docker JAR: classpath:books/*.pdf)
+        try {
+            List<String> cpCandidates = new ArrayList<>();
+            if (fileName != null && !fileName.isBlank()) {
+                cpCandidates.add(fileName);
+                cpCandidates.add(fileName.replace(" ", "_"));
+                cpCandidates.add(fileName.replace("_", " "));
+            }
+            if (docEntity != null) {
+                if (docEntity.getOriginalFilename() != null && !docEntity.getOriginalFilename().isBlank()) {
+                    cpCandidates.add(docEntity.getOriginalFilename());
+                    cpCandidates.add(docEntity.getOriginalFilename().replace(" ", "_"));
+                    cpCandidates.add(docEntity.getOriginalFilename().replace("_", " "));
+                }
+                if (docEntity.getTitle() != null && !docEntity.getTitle().isBlank()) {
+                    cpCandidates.add(docEntity.getTitle() + ".pdf");
+                    cpCandidates.add(docEntity.getTitle().replace(" ", "_") + ".pdf");
+                }
+            }
+            for (String cName : cpCandidates) {
+                org.springframework.core.io.Resource cpRes = new org.springframework.core.io.ClassPathResource("books/" + cName);
+                if (cpRes.exists()) {
+                    log.info("Loaded authentic bundled PDF for doc #{} directly from classpath: books/{}",
+                            docEntity != null ? docEntity.getId() : -1, cName);
+                    return cpRes;
+                }
+            }
+        } catch (Exception cpEx) {
+            log.debug("Classpath lookup failed for {}: {}", fileName, cpEx.getMessage());
+        }
+
         // 3. Not on disk or was placeholder: recover from database directly into disk file via stream
         boolean recovered = recoverFileFromDatabase(fileName, filePath);
         if (recovered && file.exists() && file.canRead() && file.length() > 0) {
@@ -577,31 +608,48 @@ public class FileStorageService {
             // Render page 1 of the PDF with strict concurrency limit and memory safeguards
             Resource pdfRes = loadDocumentAsResource(doc.getFileName(), doc);
             if (pdfRes != null && pdfRes.exists()) {
-                File pdfFile = pdfRes.getFile();
-                // Safeguard against absurdly large files (>100MB) to prevent container OOM
-                if (pdfFile.length() > 100L * 1024 * 1024) {
-                    log.warn("Skipping on-the-fly cover render for doc #{} because file size exceeds 100MB", doc.getId());
-                    return null;
+                File tempFile = null;
+                File pdfFile = null;
+                try {
+                    pdfFile = pdfRes.getFile();
+                } catch (Exception notDirectFile) {
+                    tempFile = File.createTempFile("cover_src_" + doc.getId() + "_", ".pdf");
+                    try (InputStream in = pdfRes.getInputStream()) {
+                        Files.copy(in, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    pdfFile = tempFile;
                 }
 
-                if (!COVER_SEMAPHORE.tryAcquire(4000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                    log.info("Cover generation queue busy for doc #{}, returning fallback", doc.getId());
-                    return null;
-                }
+                try {
+                    // Safeguard against absurdly large files (>100MB) to prevent container OOM
+                    if (pdfFile.length() > 100L * 1024 * 1024) {
+                        log.warn("Skipping on-the-fly cover render for doc #{} because file size exceeds 100MB", doc.getId());
+                        return null;
+                    }
 
-                try (PDDocument pdDoc = Loader.loadPDF(pdfFile, IOUtils.createTempFileOnlyStreamCache())) {
-                    if (pdDoc.getNumberOfPages() > 0) {
-                        PDFRenderer renderer = new PDFRenderer(pdDoc);
-                        // 72 DPI is optimal for 200px card thumbnails and uses 80% less memory than 130 DPI
-                        BufferedImage bim = renderer.renderImageWithDPI(0, 72, ImageType.RGB);
-                        Files.createDirectories(this.coversPath);
-                        ImageIO.write(bim, "PNG", thumbFile);
-                        persistFileToDatabase(thumbName, thumbPath, "image/png");
-                        log.info("Auto-rendered authentic book cover picture for doc #{}: {}", doc.getId(), thumbName);
-                        return new UrlResource(thumbPath.toUri());
+                    if (!COVER_SEMAPHORE.tryAcquire(4000, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        log.info("Cover generation queue busy for doc #{}, returning fallback", doc.getId());
+                        return null;
+                    }
+
+                    try (PDDocument pdDoc = Loader.loadPDF(pdfFile, IOUtils.createTempFileOnlyStreamCache())) {
+                        if (pdDoc.getNumberOfPages() > 0) {
+                            PDFRenderer renderer = new PDFRenderer(pdDoc);
+                            // 72 DPI is optimal for 200px card thumbnails and uses 80% less memory than 130 DPI
+                            BufferedImage bim = renderer.renderImageWithDPI(0, 72, ImageType.RGB);
+                            Files.createDirectories(this.coversPath);
+                            ImageIO.write(bim, "PNG", thumbFile);
+                            persistFileToDatabase(thumbName, thumbPath, "image/png");
+                            log.info("Auto-rendered authentic book cover picture for doc #{}: {}", doc.getId(), thumbName);
+                            return new UrlResource(thumbPath.toUri());
+                        }
+                    } finally {
+                        COVER_SEMAPHORE.release();
                     }
                 } finally {
-                    COVER_SEMAPHORE.release();
+                    if (tempFile != null && tempFile.exists()) {
+                        try { tempFile.delete(); } catch (Exception ignored) {}
+                    }
                 }
             }
         } catch (Throwable t) {

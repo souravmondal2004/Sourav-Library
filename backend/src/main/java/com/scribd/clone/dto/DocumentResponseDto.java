@@ -24,6 +24,7 @@ public class DocumentResponseDto {
     private Long viewCount;
     private Long downloadCount;
     private String uploadedByUsername;
+    private String googleDriveUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -52,6 +53,7 @@ public class DocumentResponseDto {
         dto.setIsPublished(doc.getIsPublished());
         dto.setViewCount(doc.getViewCount());
         dto.setDownloadCount(doc.getDownloadCount());
+        dto.setGoogleDriveUrl(doc.getGoogleDriveUrl());
         if (doc.getUploadedBy() != null) {
             dto.setUploadedByUsername(doc.getUploadedBy().getUsername());
         }
@@ -100,6 +102,8 @@ public class DocumentResponseDto {
     public void setDownloadCount(Long downloadCount) { this.downloadCount = downloadCount; }
     public String getUploadedByUsername() { return uploadedByUsername; }
     public void setUploadedByUsername(String uploadedByUsername) { this.uploadedByUsername = uploadedByUsername; }
+    public String getGoogleDriveUrl() { return googleDriveUrl; }
+    public void setGoogleDriveUrl(String googleDriveUrl) { this.googleDriveUrl = googleDriveUrl; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

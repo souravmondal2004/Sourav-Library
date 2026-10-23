@@ -317,9 +317,15 @@ export default function App() {
     }
   };
 
-  const handleOpenReader = (book) => {
+  const handleOpenReader = (book, forceInline = false) => {
     if (!currentUser) {
       handleOpenAuth('login');
+      return;
+    }
+    if (!forceInline) {
+      // Option 2: Open directly in Google Drive in a new tab (0MB Render RAM used)
+      const driveUrl = book.googleDriveUrl || api.documents.getDriveViewUrl(book.id);
+      window.open(driveUrl, '_blank', 'noopener,noreferrer');
       return;
     }
     setActiveReaderBook(book);

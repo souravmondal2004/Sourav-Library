@@ -382,6 +382,7 @@ export const api = {
     },
     getDetails: (id) => request(`/documents/${id}`),
     getStreamUrl: (id) => `${API_BASE_URL}/documents/${id}/stream`,
+    getDriveViewUrl: (id) => `${API_BASE_URL}/documents/${id}/drive-view`,
     getCoverUrl: (id) => `${API_BASE_URL}/documents/${id}/cover`,
     getDownloadUrl: (id) => {
       const token = getAuthToken();

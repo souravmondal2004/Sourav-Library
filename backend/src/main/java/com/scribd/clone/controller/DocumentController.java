@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,40 @@ public class DocumentController {
     @GetMapping("/{id}")
     public ResponseEntity<DocumentResponseDto> getDocumentDetails(@PathVariable Long id) {
         return ResponseEntity.ok(documentService.getDocumentDetails(id));
+    }
+
+    /**
+     * Direct Google Drive Viewer endpoint.
+     * Redirects the browser directly to the PDF in Google Drive, bypassing Render memory and CPU.
+     */
+    @GetMapping("/{id}/drive-view")
+    public ResponseEntity<Void> openInGoogleDrive(@PathVariable Long id) {
+        Document doc = documentService.getDocumentEntity(id);
+        documentService.recordView(id);
+
+        String driveUrl = doc.getGoogleDriveUrl();
+        if (driveUrl == null || driveUrl.isBlank()) {
+            if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+                String fileId = googleDriveStorageService.findFileIdByName(doc.getFileName());
+                if (fileId == null && doc.getOriginalFilename() != null) {
+                    fileId = googleDriveStorageService.findFileIdByName(doc.getOriginalFilename());
+                }
+                if (fileId != null) {
+                    driveUrl = "https://drive.google.com/file/d/" + fileId + "/view";
+                }
+            }
+        }
+
+        if (driveUrl != null && !driveUrl.isBlank()) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(URI.create(driveUrl))
+                    .build();
+        }
+
+        // Fallback: stream from backend if not linked to Google Drive
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create("/api/documents/" + id + "/stream"))
+                .build();
     }
 
     /**
@@ -182,7 +217,7 @@ public class DocumentController {
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<DocumentResponseDto> uploadDocument(
-            @RequestParam("file") MultipartFile pdfFile,
+            @RequestParam(value = "file", required = false) MultipartFile pdfFile,
             @RequestParam(value = "cover", required = false) MultipartFile coverFile,
             @RequestParam("title") String title,
             @RequestParam("author") String author,
@@ -193,6 +228,7 @@ public class DocumentController {
             @RequestParam(value = "publishedYear", required = false) Integer publishedYear,
             @RequestParam(value = "isFeatured", defaultValue = "false") Boolean isFeatured,
             @RequestParam(value = "isPublished", defaultValue = "true") Boolean isPublished,
+            @RequestParam(value = "googleDriveUrl", required = false) String googleDriveUrl,
             Authentication authentication
     ) throws IOException {
         String username = (authentication != null && authentication.getName() != null) ? authentication.getName() : "Sourav";
@@ -208,7 +244,8 @@ public class DocumentController {
                 publishedYear,
                 isFeatured,
                 isPublished,
-                username
+                username,
+                googleDriveUrl
         );
         if (documentSyncService != null) {
             documentSyncService.syncDocumentsToGoogleDrive();

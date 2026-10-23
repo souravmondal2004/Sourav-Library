@@ -158,9 +158,14 @@ export default function PdfReaderModal({
           pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
 
+        const cacheKey = `${book.id}_${book.fileName || book.title || ''}`;
+        if (retryCount > 0) {
+          globalPdfBufferCache.delete(cacheKey);
+        }
+
         // Fast Path 1: Instant in-memory client cache (0ms reopen)
-        if (globalPdfBufferCache.has(book.id)) {
-          const cachedBuffer = globalPdfBufferCache.get(book.id);
+        if (retryCount === 0 && globalPdfBufferCache.has(cacheKey)) {
+          const cachedBuffer = globalPdfBufferCache.get(cacheKey);
           const task = pdfjs.getDocument({
             data: cachedBuffer,
             cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
@@ -208,7 +213,7 @@ export default function PdfReaderModal({
             throw new Error(`Cloud server returned HTTP ${response.status}. Please wait a few seconds and click Retry.`);
           }
           const arrayBuffer = await response.arrayBuffer();
-          globalPdfBufferCache.set(book.id, arrayBuffer);
+          globalPdfBufferCache.set(cacheKey, arrayBuffer);
 
           const fallbackTask = pdfjs.getDocument({
             data: arrayBuffer,
@@ -221,9 +226,9 @@ export default function PdfReaderModal({
         if (!isMounted) return;
 
         // Populate in-memory cache in background if not already cached
-        if (!globalPdfBufferCache.has(book.id) && doc && doc.getData) {
+        if (!globalPdfBufferCache.has(cacheKey) && doc && doc.getData) {
           doc.getData().then((data) => {
-            globalPdfBufferCache.set(book.id, data);
+            globalPdfBufferCache.set(cacheKey, data);
           }).catch(() => {});
         }
 
@@ -569,16 +574,17 @@ export default function PdfReaderModal({
                 <ZoomIn size={16} strokeWidth={2.4} />
               </button>
 
-              {/* Open in New Tab Button */}
+              {/* Open in Google Drive Button */}
               <a
-                href={streamUrl}
+                href={book.googleDriveUrl || api.documents.getDriveViewUrl(book.id)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn reader-tool-btn"
-                title="Open PDF directly in a new browser tab"
+                title="Open PDF directly in Google Drive"
+                style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
               >
                 <ExternalLink size={16} strokeWidth={2.4} />
-                <span className="reader-btn-label">Open Full</span>
+                <span className="reader-btn-label">Drive</span>
               </a>
 
               {/* Fullscreen Button */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Bookmark, Eye, Download, Trash2, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Bookmark, Eye, Download, Trash2, CheckCircle2, ExternalLink } from 'lucide-react';
 import { api, getStoredUser } from '../../services/api';
 
 // Global in-memory cache for cover image load state
@@ -118,7 +118,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
         {/* Quick Read Overlay (Desktop Hover) */}
         <div className="book-card-overlay">
           <button type="button" className="book-card-read-btn">
-            <BookOpen size={16} /> {t?.readNow || 'Read Now'}
+            <ExternalLink size={16} /> Open in Google Drive
           </button>
         </div>
 
@@ -155,10 +155,10 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
             type="button"
             className="btn btn-primary book-read-action-btn"
             onClick={() => onRead(book)}
-            title="Read in PDF Reader"
+            title="Open PDF directly in Google Drive"
           >
-            <BookOpen size={14} />
-            <span>{t?.readOnline || 'Read'}</span>
+            <ExternalLink size={14} />
+            <span>Open in Drive</span>
           </button>
           <button
             type="button"

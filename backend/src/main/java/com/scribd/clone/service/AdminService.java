@@ -106,10 +106,62 @@ public class AdminService {
                 title, author, description, categoryId, calculatedPages,
                 language, publishedYear, isFeatured, isPublished, username,
                 storedFileName, storedCoverName, pdfFile.getOriginalFilename(),
-                pdfFile.getSize(), pdfFile.getContentType()
+                pdfFile.getSize(), pdfFile.getContentType(), null
         );
 
         // 5. Update Google Drive documents_catalog.json cloud archive
+        if (documentSyncService != null) {
+            documentSyncService.syncDocumentsToGoogleDrive();
+        }
+
+        return response;
+    }
+
+    public DocumentResponseDto uploadDocument(
+            MultipartFile pdfFile,
+            MultipartFile coverFile,
+            String title,
+            String author,
+            String description,
+            Long categoryId,
+            Integer pageCount,
+            String language,
+            Integer publishedYear,
+            Boolean isFeatured,
+            Boolean isPublished,
+            String username,
+            String googleDriveUrl
+    ) throws IOException {
+        String storedFileName = "drive_" + System.currentTimeMillis() + ".pdf";
+        String originalFilename = title != null ? title + ".pdf" : "document.pdf";
+        long fileSize = 0L;
+        String contentType = "application/pdf";
+
+        if (pdfFile != null && !pdfFile.isEmpty()) {
+            storedFileName = fileStorageService.storeDocument(pdfFile);
+            originalFilename = pdfFile.getOriginalFilename();
+            fileSize = pdfFile.getSize();
+            contentType = pdfFile.getContentType();
+        } else if (googleDriveUrl == null || googleDriveUrl.isBlank()) {
+            throw new IllegalArgumentException("Either a PDF file or a Google Drive link is required");
+        }
+
+        int calculatedPages = (pageCount != null && pageCount > 0)
+                ? pageCount
+                : (pdfFile != null && !pdfFile.isEmpty() ? fileStorageService.countPdfPages(storedFileName) : 1);
+
+        String storedCoverName = null;
+        if (coverFile != null && !coverFile.isEmpty()) {
+            storedCoverName = fileStorageService.storeCover(coverFile);
+        }
+
+        DocumentResponseDto response = saveUploadedDocumentMetadata(
+                title, author, description, categoryId, calculatedPages,
+                language, publishedYear, isFeatured, isPublished, username,
+                storedFileName, storedCoverName, originalFilename,
+                fileSize, contentType, googleDriveUrl
+        );
+
         if (documentSyncService != null) {
             documentSyncService.syncDocumentsToGoogleDrive();
         }
@@ -134,6 +186,30 @@ public class AdminService {
             String originalFilename,
             long fileSize,
             String contentType
+    ) {
+        return saveUploadedDocumentMetadata(title, author, description, categoryId, calculatedPages,
+                language, publishedYear, isFeatured, isPublished, username,
+                storedFileName, storedCoverName, originalFilename, fileSize, contentType, null);
+    }
+
+    @Transactional
+    public DocumentResponseDto saveUploadedDocumentMetadata(
+            String title,
+            String author,
+            String description,
+            Long categoryId,
+            int calculatedPages,
+            String language,
+            Integer publishedYear,
+            Boolean isFeatured,
+            Boolean isPublished,
+            String username,
+            String storedFileName,
+            String storedCoverName,
+            String originalFilename,
+            long fileSize,
+            String contentType,
+            String googleDriveUrl
     ) {
         User uploader = (username != null ? userRepository.findByUsername(username).orElse(null) : null);
         if (uploader == null) {
@@ -172,6 +248,7 @@ public class AdminService {
         document.setIsFeatured(isFeatured != null ? isFeatured : false);
         document.setIsPublished(isPublished != null ? isPublished : true);
         document.setUploadedBy(uploader);
+        document.setGoogleDriveUrl(googleDriveUrl);
 
         Document saved = documentRepository.save(document);
         return DocumentResponseDto.fromEntity(saved);
