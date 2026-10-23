@@ -317,18 +317,18 @@ export default function App() {
     }
   };
 
-  const handleOpenReader = (book, forceInline = false) => {
+  const handleOpenReader = (book) => {
     if (!currentUser) {
       handleOpenAuth('login');
       return;
     }
-    if (!forceInline) {
-      // Option 2: Open directly in Google Drive in a new tab (0MB Render RAM used)
-      const driveUrl = book.googleDriveUrl || api.documents.getDriveViewUrl(book.id);
-      window.open(driveUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
     setActiveReaderBook(book);
+  };
+
+  const handleOpenInDrive = (book, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const driveUrl = book.googleDriveUrl || api.documents.getDriveViewUrl(book.id);
+    window.open(driveUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleLogout = () => {
@@ -731,6 +731,7 @@ export default function App() {
                     key={book.id}
                     book={book}
                     onRead={handleOpenReader}
+                    onOpenInDrive={handleOpenInDrive}
                     onToggleBookmark={handleToggleBookmark}
                     isBookmarked={bookmarkedIds.has(book.id)}
                     onDelete={isAdmin ? handleDeleteBook : null}

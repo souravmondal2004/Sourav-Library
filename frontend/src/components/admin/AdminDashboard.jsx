@@ -64,6 +64,7 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   const [publishedYear, setPublishedYear] = useState(new Date().getFullYear());
   const [isFeatured, setIsFeatured] = useState(false);
   const [isPublished, setIsPublished] = useState(true);
+  const [googleDriveUrl, setGoogleDriveUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
   // Edit Modal State
@@ -157,8 +158,8 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
   // Handle PDF Upload Submit
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
-    if (!pdfFile) {
-      setMessage({ type: 'error', text: 'Please select a PDF document file to upload.' });
+    if (!pdfFile && !googleDriveUrl.trim()) {
+      setMessage({ type: 'error', text: 'Please select a PDF document file or provide a Google Drive link.' });
       return;
     }
     if (!title.trim() || !author.trim() || !categoryId) {
@@ -171,7 +172,12 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
 
     const activeCatId = categoryId || (categories.length > 0 ? categories[0].id : 1);
     const formData = new FormData();
-    formData.append('file', pdfFile);
+    if (pdfFile) {
+      formData.append('file', pdfFile);
+    }
+    if (googleDriveUrl.trim()) {
+      formData.append('googleDriveUrl', googleDriveUrl.trim());
+    }
     if (coverFile) {
       formData.append('cover', coverFile);
     }
@@ -189,12 +195,13 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
       const uploadedDoc = await api.admin.uploadDocument(formData);
       setMessage({
         type: 'success',
-        text: `"${uploadedDoc.title}" uploaded and processed successfully! Pages: ${uploadedDoc.pageCount}`
+        text: `"${uploadedDoc.title}" uploaded and processed successfully! Pages: ${uploadedDoc.pageCount || 1}`
       });
 
       // Reset form
       setPdfFile(null);
       setCoverFile(null);
+      setGoogleDriveUrl('');
       setTitle('');
       setAuthor('');
       setDescription('');
@@ -616,6 +623,23 @@ export default function AdminDashboard({ categories, onRefreshCategories, onOpen
                   }}
                 />
               </div>
+            </div>
+
+            {/* Google Drive URL Input (Option 2 - Direct Cloud Storage) */}
+            <div className="form-group">
+              <label className="form-label">
+                Or Google Drive PDF Link (Optional - 0MB Render RAM)
+              </label>
+              <input
+                type="url"
+                placeholder="https://drive.google.com/file/d/.../view"
+                value={googleDriveUrl}
+                onChange={(e) => setGoogleDriveUrl(e.target.value)}
+                className="form-input"
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                Paste a public/shareable Google Drive view link to bypass server memory limits.
+              </span>
             </div>
 
             {/* Cover Image Picker */}

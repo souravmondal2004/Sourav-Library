@@ -5,7 +5,7 @@ import { api, getStoredUser } from '../../services/api';
 // Global in-memory cache for cover image load state
 const coverStatusCache = new Map();
 
-export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked, onDelete, currentUser, onRequireAuth, t }) {
+export default function BookCard({ book, onRead, onOpenInDrive, onToggleBookmark, isBookmarked, onDelete, currentUser, onRequireAuth, t }) {
   const cachedStatus = coverStatusCache.get(book.id);
   const [hasCoverImg, setHasCoverImg] = React.useState(cachedStatus === 'loaded');
   const [coverFailed, setCoverFailed] = React.useState(cachedStatus === 'failed');
@@ -118,7 +118,7 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
         {/* Quick Read Overlay (Desktop Hover) */}
         <div className="book-card-overlay">
           <button type="button" className="book-card-read-btn">
-            <ExternalLink size={16} /> Open in Google Drive
+            <BookOpen size={16} /> {t?.readNow || 'Read Now'}
           </button>
         </div>
 
@@ -149,16 +149,33 @@ export default function BookCard({ book, onRead, onToggleBookmark, isBookmarked,
         </h3>
         <p className="book-card-author">by {book.author}</p>
 
-        {/* Actions (Read + Download) */}
+        {/* Actions (Read + Drive + Download) */}
         <div className="book-card-actions">
           <button
             type="button"
             className="btn btn-primary book-read-action-btn"
             onClick={() => onRead(book)}
-            title="Open PDF directly in Google Drive"
+            title="Read in PDF Reader"
+          >
+            <BookOpen size={14} />
+            <span>{t?.readOnline || 'Read'}</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline book-drive-action-btn"
+            onClick={(e) => {
+              if (onOpenInDrive) {
+                onOpenInDrive(book, e);
+              } else {
+                e.stopPropagation();
+                const dUrl = book.googleDriveUrl || api.documents.getDriveViewUrl(book.id);
+                window.open(dUrl, '_blank', 'noopener,noreferrer');
+              }
+            }}
+            title="Open directly in Google Drive"
           >
             <ExternalLink size={14} />
-            <span>Open in Drive</span>
+            <span>Drive</span>
           </button>
           <button
             type="button"

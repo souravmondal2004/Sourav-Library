@@ -197,16 +197,19 @@ public class DataInitializer implements CommandLineRunner {
                     String filename = res.getFilename();
                     if (filename == null || !filename.toLowerCase().endsWith(".pdf")) continue;
 
-                    if (documentRepository.existsByFileName(filename)) {
-                        log.debug("Bundled book '{}' already cataloged.", filename);
-                        continue;
-                    }
-
                     byte[] bytes;
                     try (InputStream is = res.getInputStream()) {
                         bytes = is.readAllBytes();
                     }
                     if (bytes.length == 0) continue;
+
+                    // Always ensure authentic bytes are persisted in DOCUMENT_CONTENTS table and disk
+                    fileStorageService.storeDirectly(filename, bytes, "application/pdf");
+
+                    if (documentRepository.existsByFileName(filename)) {
+                        log.debug("Bundled book '{}' already cataloged.", filename);
+                        continue;
+                    }
 
                     registerPdfBook(filename, bytes, admin);
                 } catch (Exception ex) {

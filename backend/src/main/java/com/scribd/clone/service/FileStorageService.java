@@ -45,6 +45,11 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 @Service
 public class FileStorageService {
 
@@ -59,6 +64,9 @@ public class FileStorageService {
 
     private Path documentsPath;
     private Path coversPath;
+
+    private final Map<String, Resource> bundledResourceMap = new ConcurrentHashMap<>();
+    private final List<Resource> allBundledResources = new CopyOnWriteArrayList<>();
 
     @Autowired(required = false)
     private JdbcTemplate jdbcTemplate;
@@ -84,6 +92,7 @@ public class FileStorageService {
         }
 
         ensureDocumentContentsTableExists();
+        indexBundledResources();
         syncLocalFilesToGoogleDrive();
     }
 
@@ -472,34 +481,22 @@ public class FileStorageService {
 
 
         // 2. Bundled classpath resource lookup (embedded inside the Docker JAR: classpath:books/*.pdf)
-        try {
-            List<String> cpCandidates = new ArrayList<>();
-            if (fileName != null && !fileName.isBlank()) {
-                cpCandidates.add(fileName);
-                cpCandidates.add(fileName.replace(" ", "_"));
-                cpCandidates.add(fileName.replace("_", " "));
-            }
-            if (docEntity != null) {
-                if (docEntity.getOriginalFilename() != null && !docEntity.getOriginalFilename().isBlank()) {
-                    cpCandidates.add(docEntity.getOriginalFilename());
-                    cpCandidates.add(docEntity.getOriginalFilename().replace(" ", "_"));
-                    cpCandidates.add(docEntity.getOriginalFilename().replace("_", " "));
+        Resource authenticResource = findBundledResource(fileName, docEntity);
+        if (authenticResource != null && authenticResource.exists()) {
+            log.info("Loaded authentic bundled PDF for doc #{} directly from classpath: {}",
+                    docEntity != null ? docEntity.getId() : -1, authenticResource.getFilename());
+            try {
+                if (!file.exists() || isPlaceholder) {
+                    byte[] bytes;
+                    try (InputStream is = authenticResource.getInputStream()) {
+                        bytes = is.readAllBytes();
+                    }
+                    if (bytes != null && bytes.length > 0) {
+                        storeDirectly(fileName, bytes, "application/pdf");
+                    }
                 }
-                if (docEntity.getTitle() != null && !docEntity.getTitle().isBlank()) {
-                    cpCandidates.add(docEntity.getTitle() + ".pdf");
-                    cpCandidates.add(docEntity.getTitle().replace(" ", "_") + ".pdf");
-                }
-            }
-            for (String cName : cpCandidates) {
-                org.springframework.core.io.Resource cpRes = new org.springframework.core.io.ClassPathResource("books/" + cName);
-                if (cpRes.exists()) {
-                    log.info("Loaded authentic bundled PDF for doc #{} directly from classpath: books/{}",
-                            docEntity != null ? docEntity.getId() : -1, cName);
-                    return cpRes;
-                }
-            }
-        } catch (Exception cpEx) {
-            log.debug("Classpath lookup failed for {}: {}", fileName, cpEx.getMessage());
+            } catch (Exception ignored) {}
+            return authenticResource;
         }
 
         // 3. Not on disk or was placeholder: recover from database directly into disk file via stream
@@ -510,7 +507,15 @@ public class FileStorageService {
             } catch (MalformedURLException ignored) {}
         }
 
-        // 4. Resilient Fallback: If missing from disk, database, and cloud storage,
+        // 4. Double check bundled index one more time before fallback
+        if (authenticResource == null) {
+            authenticResource = findBundledResource(fileName, docEntity);
+            if (authenticResource != null && authenticResource.exists()) {
+                return authenticResource;
+            }
+        }
+
+        // 5. Resilient Fallback: If missing from disk, database, and cloud storage,
         // auto-generate a structured preview PDF so reader and download endpoints NEVER 404.
         if (docEntity != null) {
             try {
@@ -520,6 +525,96 @@ public class FileStorageService {
                 }
             } catch (Exception ex) {
                 log.error("Could not generate fallback PDF for doc {}: {}", docEntity.getId(), ex.getMessage());
+            }
+        }
+
+        return null;
+    }
+
+    public synchronized void indexBundledResources() {
+        try {
+            PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+            Resource[] resources = resolver.getResources("classpath*:books/*.pdf");
+            for (Resource res : resources) {
+                if (!allBundledResources.contains(res)) {
+                    allBundledResources.add(res);
+                }
+                String fn = res.getFilename();
+                if (fn != null && !fn.isBlank()) {
+                    bundledResourceMap.put(fn, res);
+                    bundledResourceMap.put(fn.toLowerCase(), res);
+                    bundledResourceMap.put(normalizeForMatching(fn), res);
+                }
+            }
+            log.info("✅ Indexed {} authentic bundled PDF books from classpath:books/*.pdf", resources.length);
+        } catch (Exception e) {
+            log.warn("Could not index bundled PDF resources: {}", e.getMessage());
+        }
+    }
+
+    private String normalizeForMatching(String s) {
+        if (s == null) return "";
+        return s.toLowerCase()
+                .replace("\u2010", "-")
+                .replace("\u2013", "-")
+                .replace("\u2014", "-")
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    public Resource findBundledResource(String fileName, Document docEntity) {
+        if (bundledResourceMap.isEmpty()) {
+            indexBundledResources();
+        }
+
+        List<String> keys = new ArrayList<>();
+        if (fileName != null && !fileName.isBlank()) keys.add(fileName);
+        if (docEntity != null) {
+            if (docEntity.getOriginalFilename() != null && !docEntity.getOriginalFilename().isBlank()) {
+                keys.add(docEntity.getOriginalFilename());
+            }
+            if (docEntity.getTitle() != null && !docEntity.getTitle().isBlank()) {
+                keys.add(docEntity.getTitle());
+            }
+        }
+
+        // Tier 1: Direct key lookup
+        for (String key : keys) {
+            if (bundledResourceMap.containsKey(key)) return bundledResourceMap.get(key);
+            if (bundledResourceMap.containsKey(key.toLowerCase())) return bundledResourceMap.get(key.toLowerCase());
+            String norm = normalizeForMatching(key);
+            if (bundledResourceMap.containsKey(norm)) return bundledResourceMap.get(norm);
+        }
+
+        // Tier 2: Substring / normalized contains
+        for (String key : keys) {
+            String normKey = normalizeForMatching(key);
+            if (normKey.length() < 4) continue;
+            for (Map.Entry<String, Resource> entry : bundledResourceMap.entrySet()) {
+                String candidate = entry.getKey();
+                if (candidate.length() > 6 && (candidate.contains(normKey) || normKey.contains(candidate))) {
+                    return entry.getValue();
+                }
+            }
+        }
+
+        // Tier 3: Keyword token matching
+        for (String key : keys) {
+            String clean = key.toLowerCase().replace("\u2010", " ").replaceAll("[^a-z0-9]", " ").trim();
+            String[] tokens = clean.split("\\s+");
+            if (tokens.length >= 2) {
+                for (Resource res : allBundledResources) {
+                    String resName = res.getFilename();
+                    if (resName != null) {
+                        String resClean = resName.toLowerCase().replace("\u2010", " ").replaceAll("[^a-z0-9]", " ");
+                        int matches = 0;
+                        for (String t : tokens) {
+                            if (t.length() > 2 && resClean.contains(t)) matches++;
+                        }
+                        if (matches >= 2 && matches >= (tokens.length / 2)) {
+                            return res;
+                        }
+                    }
+                }
             }
         }
 
