@@ -111,36 +111,33 @@ public class FileStorageService {
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
                     )
                 """);
+                try {
+                    jdbcTemplate.execute("ALTER TABLE DOCUMENT_CONTENTS ALTER COLUMN file_data TYPE BYTEA");
+                } catch (Exception ignored) {}
                 tableInitialized = true;
                 log.info("Initialized DOCUMENT_CONTENTS table with BYTEA in PostgreSQL.");
                 return;
             }
 
-            // Oracle / H2
+            // H2 / Oracle / MySQL fallback: BLOB binary column
             try {
                 jdbcTemplate.execute("""
-                    CREATE TABLE DOCUMENT_CONTENTS (
-                        id NUMBER(19) GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-                        file_name VARCHAR2(255) NOT NULL UNIQUE,
-                        content_type VARCHAR2(100),
+                    CREATE TABLE IF NOT EXISTS DOCUMENT_CONTENTS (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        file_name VARCHAR(255) NOT NULL UNIQUE,
+                        content_type VARCHAR(100),
                         file_data BLOB NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
                     )
                 """);
-            } catch (Exception e) {
-                // H2 syntax fallback
-                try {
-                    jdbcTemplate.execute("""
-                        CREATE TABLE IF NOT EXISTS DOCUMENT_CONTENTS (
-                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            file_name VARCHAR(255) NOT NULL UNIQUE,
-                            content_type VARCHAR(100),
-                            file_data BLOB NOT NULL,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-                        )
-                    """);
-                } catch (Exception ignored) {}
-            }
+            } catch (Exception ignored) {}
+
+            try {
+                jdbcTemplate.execute("ALTER TABLE DOCUMENT_CONTENTS ALTER COLUMN file_data SET DATA TYPE BLOB");
+            } catch (Exception ignored) {}
+
+            tableInitialized = true;
+            log.info("Initialized DOCUMENT_CONTENTS table with BLOB.");
         } catch (Exception e) {
             log.warn("Could not ensure DOCUMENT_CONTENTS table: {}", e.getMessage());
         }
@@ -255,23 +252,24 @@ public class FileStorageService {
      * Stores direct binary content (e.g., initial generated seed PDFs).
      */
     public void storeDirectly(String fileName, byte[] bytes, String contentType) {
-        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
-            try {
-                googleDriveStorageService.uploadBytes(fileName, bytes, contentType);
-                log.info("Stored direct file '{}' in Google Drive Cloud Storage.", fileName);
-                return;
-            } catch (Exception ex) {
-                log.warn("Could not store directly to Google Drive for {}: {}", fileName, ex.getMessage());
-            }
-        }
-
+        // 1. Always persist to local disk and database first
         try {
             Files.createDirectories(this.documentsPath);
             Path targetLocation = this.documentsPath.resolve(fileName);
             Files.write(targetLocation, bytes, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             persistFileToDatabase(fileName, targetLocation, contentType);
         } catch (Exception e) {
-            log.warn("Could not store direct content for {}: {}", fileName, e.getMessage());
+            log.warn("Could not store direct content locally for {}: {}", fileName, e.getMessage());
+        }
+
+        // 2. Best-effort Google Drive cloud backup (safely skips if service account lacks quota)
+        if (googleDriveStorageService != null && googleDriveStorageService.isAvailable()) {
+            try {
+                googleDriveStorageService.uploadBytes(fileName, bytes, contentType);
+                log.info("Stored direct file '{}' in Google Drive Cloud Storage.", fileName);
+            } catch (Exception ex) {
+                log.debug("Google Drive cloud sync skipped for {}: {}", fileName, ex.getMessage());
+            }
         }
     }
 
