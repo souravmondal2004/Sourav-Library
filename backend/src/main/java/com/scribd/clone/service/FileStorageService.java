@@ -566,56 +566,25 @@ public class FileStorageService {
             indexBundledResources();
         }
 
-        List<String> keys = new ArrayList<>();
-        if (fileName != null && !fileName.isBlank()) keys.add(fileName);
+        List<String> candidateNames = new ArrayList<>();
+        if (fileName != null && !fileName.isBlank()) candidateNames.add(fileName);
         if (docEntity != null) {
             if (docEntity.getOriginalFilename() != null && !docEntity.getOriginalFilename().isBlank()) {
-                keys.add(docEntity.getOriginalFilename());
+                candidateNames.add(docEntity.getOriginalFilename());
             }
             if (docEntity.getTitle() != null && !docEntity.getTitle().isBlank()) {
-                keys.add(docEntity.getTitle());
+                candidateNames.add(docEntity.getTitle());
             }
         }
 
-        // Tier 1: Direct key lookup
-        for (String key : keys) {
-            if (bundledResourceMap.containsKey(key)) return bundledResourceMap.get(key);
-            if (bundledResourceMap.containsKey(key.toLowerCase())) return bundledResourceMap.get(key.toLowerCase());
-            String norm = normalizeForMatching(key);
+        // Strict 1:1 matching only - avoids cross-document name mixing
+        for (String name : candidateNames) {
+            if (bundledResourceMap.containsKey(name)) return bundledResourceMap.get(name);
+            if (bundledResourceMap.containsKey(name.toLowerCase())) return bundledResourceMap.get(name.toLowerCase());
+            String norm = normalizeForMatching(name);
             if (bundledResourceMap.containsKey(norm)) return bundledResourceMap.get(norm);
-        }
-
-        // Tier 2: Substring / normalized contains
-        for (String key : keys) {
-            String normKey = normalizeForMatching(key);
-            if (normKey.length() < 4) continue;
-            for (Map.Entry<String, Resource> entry : bundledResourceMap.entrySet()) {
-                String candidate = entry.getKey();
-                if (candidate.length() > 6 && (candidate.contains(normKey) || normKey.contains(candidate))) {
-                    return entry.getValue();
-                }
-            }
-        }
-
-        // Tier 3: Keyword token matching
-        for (String key : keys) {
-            String clean = key.toLowerCase().replace("\u2010", " ").replaceAll("[^a-z0-9]", " ").trim();
-            String[] tokens = clean.split("\\s+");
-            if (tokens.length >= 2) {
-                for (Resource res : allBundledResources) {
-                    String resName = res.getFilename();
-                    if (resName != null) {
-                        String resClean = resName.toLowerCase().replace("\u2010", " ").replaceAll("[^a-z0-9]", " ");
-                        int matches = 0;
-                        for (String t : tokens) {
-                            if (t.length() > 2 && resClean.contains(t)) matches++;
-                        }
-                        if (matches >= 2 && matches >= (tokens.length / 2)) {
-                            return res;
-                        }
-                    }
-                }
-            }
+            String normWithPdf = normalizeForMatching(name.replaceAll("(?i)\\.pdf$", "")) + "pdf";
+            if (bundledResourceMap.containsKey(normWithPdf)) return bundledResourceMap.get(normWithPdf);
         }
 
         return null;
