@@ -74,7 +74,7 @@ public class DocumentSyncService {
             categorySyncService.restoreCategoriesFromGoogleDrive();
         }
         restoreDocumentsFromGoogleDrive();
-        archiveBundledBooksToGoogleDrive();
+        // Bundled books are already packaged in classpath JAR, no need to upload them on boot
     }
 
     /**

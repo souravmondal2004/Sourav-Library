@@ -130,8 +130,8 @@ public class DatabaseConfig {
         config.setUsername(defaultUsername != null && !defaultUsername.isBlank() ? defaultUsername : "sa");
         config.setPassword(defaultPassword != null && !defaultPassword.isBlank() ? defaultPassword : "");
         config.setDriverClassName(defaultDriver != null && !defaultDriver.isBlank() ? defaultDriver : "org.h2.Driver");
-        config.setMaximumPoolSize(10);
-        config.setMinimumIdle(2);
+        config.setMaximumPoolSize(5);
+        config.setMinimumIdle(1);
         return new HikariDataSource(config);
     }
 
@@ -213,7 +213,7 @@ public class DatabaseConfig {
             if (username != null && !username.isBlank()) config.setUsername(username);
             if (password != null && !password.isBlank()) config.setPassword(password);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(10);
+            config.setMaximumPoolSize(5);
             config.setMinimumIdle(1);
             config.setConnectionTimeout(30000);
             config.setInitializationFailTimeout(30000);
@@ -251,7 +251,7 @@ public class DatabaseConfig {
             if (defaultUsername != null && !defaultUsername.isBlank()) config.setUsername(defaultUsername);
             if (defaultPassword != null && !defaultPassword.isBlank()) config.setPassword(defaultPassword);
             config.setDriverClassName("org.postgresql.Driver");
-            config.setMaximumPoolSize(10);
+            config.setMaximumPoolSize(5);
             config.setMinimumIdle(1);
             config.setConnectionTimeout(30000);
             config.setInitializationFailTimeout(30000);

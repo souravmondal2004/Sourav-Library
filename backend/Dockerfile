@@ -16,4 +16,4 @@ RUN mkdir -p /app/uploads/documents /app/uploads/covers /app/data
 EXPOSE 8080
 ENV SPRING_PROFILES_ACTIVE=dev
 ENV MALLOC_ARENA_MAX=2
-ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms64m", "-Xmx192m", "-XX:MaxMetaspaceSize=110m", "-XX:ReservedCodeCacheSize=40m", "-XX:MaxDirectMemorySize=32m", "-XX:CompressedClassSpaceSize=24m", "-Xss384k", "-Dfile.encoding=UTF-8", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:+UseSerialGC", "-Xms48m", "-Xmx140m", "-XX:MaxMetaspaceSize=85m", "-XX:ReservedCodeCacheSize=28m", "-XX:MaxDirectMemorySize=16m", "-XX:CompressedClassSpaceSize=18m", "-Xss256k", "-Dfile.encoding=UTF-8", "-XX:+ExitOnOutOfMemoryError", "-jar", "/app/app.jar"]

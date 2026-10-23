@@ -197,23 +197,20 @@ public class DataInitializer implements CommandLineRunner {
                     String filename = res.getFilename();
                     if (filename == null || !filename.toLowerCase().endsWith(".pdf")) continue;
 
-                    byte[] bytes;
-                    try (InputStream is = res.getInputStream()) {
-                        bytes = is.readAllBytes();
-                    }
-                    if (bytes.length == 0) continue;
-
-                    // Always ensure authentic bytes are persisted in DOCUMENT_CONTENTS table and disk
-                    fileStorageService.storeDirectly(filename, bytes, "application/pdf");
-
                     if (documentRepository.existsByFileName(filename)) {
                         log.debug("Bundled book '{}' already cataloged.", filename);
                         continue;
                     }
 
-                    registerPdfBook(filename, bytes, admin);
+                    long fileSize = -1;
+                    try {
+                        fileSize = res.contentLength();
+                    } catch (Exception ignored) {}
+                    if (fileSize <= 0) fileSize = 250_000L;
+
+                    registerBundledPdfResource(filename, fileSize, admin);
                 } catch (Exception ex) {
-                    log.warn("Could not load bundled resource {}: {}", res.getFilename(), ex.getMessage());
+                    log.warn("Could not catalog bundled resource {}: {}", res.getFilename(), ex.getMessage());
                 }
             }
         } catch (Exception e) {
@@ -225,8 +222,7 @@ public class DataInitializer implements CommandLineRunner {
         try {
             Path[] potentialPaths = {
                 Paths.get("local-books"),
-                Paths.get("../local-books"),
-                Paths.get("src/main/resources/books")
+                Paths.get("../local-books")
             };
 
             for (Path dir : potentialPaths) {
@@ -237,8 +233,8 @@ public class DataInitializer implements CommandLineRunner {
                                 String filename = pdfPath.getFileName().toString();
                                 if (documentRepository.existsByFileName(filename)) return;
 
-                                byte[] bytes = Files.readAllBytes(pdfPath);
-                                registerPdfBook(filename, bytes, admin);
+                                long size = Files.size(pdfPath);
+                                registerBundledPdfResource(filename, size, admin);
                             } catch (Exception e) {
                                 log.warn("Failed to register local book {}: {}", pdfPath, e.getMessage());
                             }
@@ -247,6 +243,46 @@ public class DataInitializer implements CommandLineRunner {
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    private void registerBundledPdfResource(String filename, long fileSize, User admin) {
+        try {
+            String base = filename.replaceAll("(?i)\\.pdf$", "").replace("-", " ").replace("_", " ");
+            String title = formatTitle(base);
+            String author = "Sourav's Library";
+            if (title.contains(" - ")) {
+                String[] parts = title.split(" - ", 2);
+                author = parts[0].trim();
+                title = parts[1].trim();
+            }
+
+            Category techCategory = categoryRepository.findBySlug("technology-coding")
+                    .orElseGet(() -> categoryRepository.findAll().stream().findFirst().orElse(null));
+            Category category = resolveCategoryByTitle(title, techCategory);
+
+            Document doc = new Document();
+            doc.setTitle(title);
+            doc.setAuthor(author);
+            doc.setDescription("Authentic publication '" + title + "' preserved in Sourav's Library collection.");
+            doc.setCategory(category);
+            doc.setFileName(filename);
+            doc.setOriginalFilename(filename);
+            doc.setFileSize(fileSize);
+            doc.setFileType("application/pdf");
+            doc.setPageCount(15);
+            doc.setLanguage("English");
+            doc.setPublishedYear(java.time.Year.now().getValue());
+            doc.setIsFeatured(true);
+            doc.setIsPublished(true);
+            doc.setViewCount(24L);
+            doc.setDownloadCount(12L);
+            doc.setUploadedBy(admin);
+
+            documentRepository.save(doc);
+            log.info("✅ Registered bundled PDF book into catalog: '{}' ({} bytes)", title, fileSize);
+        } catch (Exception e) {
+            log.warn("Error registering bundled PDF book {}: {}", filename, e.getMessage());
+        }
     }
 
     private void registerPdfBook(String filename, byte[] bytes, User admin) {

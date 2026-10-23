@@ -93,7 +93,7 @@ public class FileStorageService {
 
         ensureDocumentContentsTableExists();
         indexBundledResources();
-        syncLocalFilesToGoogleDrive();
+        // Skip background bulk sync on boot to keep memory under 512MB
     }
 
     public synchronized void ensureDocumentContentsTableExists() {
