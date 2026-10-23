@@ -94,9 +94,16 @@ public class DocumentService {
     }
 
     @Transactional
+    public void recordView(Long id) {
+        Document document = getDocumentEntity(id);
+        document.setViewCount((document.getViewCount() != null ? document.getViewCount() : 0) + 1);
+        documentRepository.save(document);
+    }
+
+    @Transactional
     public void recordDownload(Long id) {
         Document document = getDocumentEntity(id);
-        document.setDownloadCount(document.getDownloadCount() + 1);
+        document.setDownloadCount((document.getDownloadCount() != null ? document.getDownloadCount() : 0) + 1);
         documentRepository.save(document);
     }
 }
